@@ -1,4 +1,4 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, render_template
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 import os
@@ -14,6 +14,7 @@ IST = pytz.timezone('Asia/Kolkata')
 def get_ist_time():
     return datetime.now(IST)
 
+# Configuration class
 class Config:
     SECRET_KEY = os.environ.get('FLASK_SECRET_KEY', 'default_secret_key')
     BASEDIR = os.path.abspath(os.path.dirname(__file__))
@@ -40,12 +41,6 @@ CORS(app)  # Enable CORS for cross-origin requests from React
 # Initialize the database
 db.init_app(app)
 
-# Define routes directly in this file
-@app.route('/api/data')
-def get_data():
-    return jsonify({
-        "message": "Welcome To Blog Post Application, Data from Flask backend!"
-    })
 
 # API for Navbar
 @app.route('/api/navbar', methods=['GET'])
@@ -58,6 +53,13 @@ def get_navbar():
             {"name": "Login", "url": "/login"},
             {"name": "Register", "url": "/register"},
         ]
+    })
+
+# Home Page
+@app.route('/')
+def get_homepage():
+    return jsonify({
+        "message": "Welcome to my blog"
     })
 
 if __name__ == '__main__':

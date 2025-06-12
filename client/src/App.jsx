@@ -10,9 +10,10 @@ import RegisterPage from './components/RegisterPage';
 
 function App() {
   const [message, setMessage] = useState('');
+  const [location, setLocation] = useState(); // get the current location
 
   useEffect(() => {
-    fetch('http://localhost:5000/api/data') // Fetch from your Flask backend
+    fetch('http://localhost:5000/') // Fetch from your Flask backend
       .then(res => res.json())
       .then(data => setMessage(data.message))
       .catch(err => console.error("Error fetching data:", err));
@@ -22,7 +23,7 @@ function App() {
     <Router>
       <Navbar />
       <div className="p-4">
-        <p>{message}</p>
+        {/* <p>{message}</p> */}
         <Routes>
           <Route path="/" element={<Homepage />} />
           <Route path="/listblogs" element={<Listblogs />} />
