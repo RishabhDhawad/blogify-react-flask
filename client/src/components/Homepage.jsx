@@ -21,7 +21,7 @@ function Homepage() {
   return (
     <div className='flex flex-col items-center p-4'>
       {/* <p>{message}</p> */}
-      <p className='text-lg text-blue-400'>{message}</p>
+      <p className='text-lg text-blue-800'>{message}</p>
     </div>
   )
 }

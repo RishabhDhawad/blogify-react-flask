@@ -1,12 +1,9 @@
-from flask import Flask, jsonify, render_template
+from flask import Flask, jsonify, render_template, request, redirect
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 import os
 from datetime import datetime
 import pytz
-
-# Initialize extensions
-db = SQLAlchemy()
 
 # Timezone configuration
 IST = pytz.timezone('Asia/Kolkata')
@@ -20,6 +17,10 @@ class Config:
     BASEDIR = os.path.abspath(os.path.dirname(__file__))
     SQLALCHEMY_DATABASE_URI = f'sqlite:///{os.path.join(BASEDIR, "BlogPost.db")}'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+
+# Initialize extensions
+db = SQLAlchemy()
+
 
 class Blog(db.Model):
     __tablename__ = 'blogs'
@@ -59,8 +60,23 @@ def get_navbar():
 @app.route('/')
 def get_homepage():
     return jsonify({
-        "message": "Welcome to my blog"
+        "message": "Welcome to my Blog"
     })
 
+@app.route('/listblogs', methods=['GET'])
+def get_listblogs():
+    """ Fetch all blogs and return them in JSON"""
+    blogs = Blog.query.all() # fetch data from the DB
+    return jsonify([{
+        "id": blog.id,
+        "title": blog.title,
+        "body": blog.body,
+        "created_date": blog.created_date.isoformat() # Convert date time into string
+    } for blog in blogs])
+    # return render_template('listblogs')
+
+
 if __name__ == '__main__':
+    with app.app_context():  # Needed for DB operations
+        db.create_all()  # Creates the database and tables
     app.run(debug=True, port=5000)  # Run on a different port than React
