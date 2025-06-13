@@ -1,16 +1,25 @@
-.venv/
-
-*.pyc
+# Byte-compiled / optimized / DLL files
 __pycache__/
+# *.py[cod]
+# *$py.class
 
-instance/
+# Virtual environment
+venv/
 
-.pytest_cache/
-.coverage
-htmlcov/
-
-dist/
-build/
-*.egg-info/
-
+# Database file
 BlogPost.db
+
+# Uploaded files
+static/uploads/
+
+# IDE-specific files
+.idea/
+.vscode/
+.env
+
+# OS files
+.DS_Store
+Thumbs.db
+
+.env
+
