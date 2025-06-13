@@ -1,49 +1,69 @@
-import React, { useEffect, useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
+import axios from 'axios'
 
 function Listblogs() {
-  const [fetchedBlogs, setFetchedBlogs] = useState([]);
+  const [blogs, setBlogs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    // Fetch the list of blogs from the Flask backend
-    fetch("http://localhost:5000/listblogs") // Ensure this matches your Flask backend
-      .then(response => {
-        if (!response.ok) {
-          throw new Error('Network response was not ok');
-        }
-        return response.json();
-      })
-      .then(data => {
-        setFetchedBlogs(data); // Set the fetched blogs from the response
-      })
-      .catch(error => console.error("Error fetching blogs:", error));
+    const fetchBlogs = async () => {
+      try {
+        setLoading(true);
+        setError('');
+        const response = await axios.get('http://localhost:5000/listblogs');
+        setBlogs(response.data);
+      } catch (err) {
+        setError('Failed to load blogs');
+        console.error('Error fetching blogs:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchBlogs();
   }, []);
 
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+
+  if (error) {
+    return <div>{error}</div>;
+  }
+
   return (
-    <div className="mt-5">
-      <h2 className="text-xl font-bold">All Blog Posts</h2>
-      {fetchedBlogs.length > 0 ? (
-        fetchedBlogs.map(blog => (
-          <div key={blog.id} className="bg-white border border-gray-300 p-3 mb-2 rounded">
-            <h3>
-              <a href={`/detail/${blog.id}`} className="text-blue-600 hover:underline">{blog.title}</a>
-            </h3>
-            <div className="text-gray-600 text-sm">
-              Published on {new Date(blog.created_date).toLocaleString('en-US', {
-                month: 'long',
-                day: 'numeric',
-                year: 'numeric',
-                hour: 'numeric',
-                minute: 'numeric',
-                hour12: true,
-              })}
-            </div>
-          </div>
-        ))
+    <div className="p-4">
+      <h2>All Blog Posts</h2>
+      
+      {blogs.length === 0 ? (
+        <p>No blog posts yet.</p>
       ) : (
-        <p>No blog posts yet. Create your first blog post above!</p>
+        <div>
+          {blogs.map((blog) => (
+            <div key={blog.id} className="border p-4 mb-4">
+              <h3>
+                <Link to={`/blog/${blog.id}`}>
+                  {blog.title}
+                </Link>
+              </h3>
+              <div>
+                Published on {new Date(blog.created_date).toLocaleDateString('en-US', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                  hour: 'numeric',
+                  minute: 'numeric',
+                  hour12: true
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
       )}
     </div>
-  );
+  )
 }
 
-export default Listblogs;
+export default Listblogs
