@@ -13,7 +13,11 @@ function Listblogs() {
         setLoading(true);
         setError('');
         const response = await axios.get('http://localhost:5000/listblogs');
-        setBlogs(response.data);
+        if (response.data.success) {
+          setBlogs(response.data.data);
+        } else {
+          setError(response.data.message || 'Failed to load blogs');
+        }
       } catch (err) {
         setError('Failed to load blogs');
         console.error('Error fetching blogs:', err);

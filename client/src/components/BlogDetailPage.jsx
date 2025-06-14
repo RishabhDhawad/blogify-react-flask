@@ -11,7 +11,8 @@ function BlogDetailPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [editedBlog, setEditedBlog] = useState({
     title: '',
-    body: ''
+    body: '',
+    image: null
   });
 
   useEffect(() => {
@@ -22,11 +23,11 @@ function BlogDetailPage() {
         const response = await axios.get(`http://localhost:5000/blog/${id}`);
         
         if (response.data.success) {
-          console.log('Blog data:', response.data.data);
           setBlog(response.data.data);
           setEditedBlog({
             title: response.data.data.title,
-            body: response.data.data.body
+            body: response.data.data.body,
+            image: null
           });
         } else {
           setError(response.data.message || 'Failed to load blog post');
@@ -50,15 +51,38 @@ function BlogDetailPage() {
     setIsEditing(false);
     setEditedBlog({
       title: blog.title,
-      body: blog.body
+      body: blog.body,
+      image: null
     });
+  };
+
+  const handleImageChange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      setEditedBlog({
+        ...editedBlog,
+        image: e.target.files[0]
+      });
+    }
   };
 
   const handleSave = async () => {
     try {
       setLoading(true);
       setError('');
-      const response = await axios.put(`http://localhost:5000/blog/${id}`, editedBlog);
+      
+      const formData = new FormData();
+      formData.append('title', editedBlog.title);
+      formData.append('body', editedBlog.body);
+      if (editedBlog.image) {
+        formData.append('image', editedBlog.image);
+      }
+
+      const response = await axios.put(`http://localhost:5000/blog/${id}/edit`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
       if (response.data.success) {
         setBlog(response.data.data);
         setIsEditing(false);
@@ -120,6 +144,15 @@ function BlogDetailPage() {
             onChange={(e) => setEditedBlog({ ...editedBlog, body: e.target.value })}
             className="w-full p-2 border border-gray-200 rounded mb-4 min-h-[200px]"
           />
+          <div className="mb-4">
+            <label className="block mb-1">Update Image (Optional)</label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleImageChange}
+              className="w-full border border-gray-200 p-2 rounded"
+            />
+          </div>
           <div>
             <button 
               onClick={handleSave}
@@ -153,7 +186,6 @@ function BlogDetailPage() {
                 className="max-w-full h-auto rounded"
                 onError={(e) => {
                   console.error('Error loading image:', e);
-                  console.log('Attempted image URL:', e.target.src);
                   e.target.style.display = 'none';
                 }}
               />

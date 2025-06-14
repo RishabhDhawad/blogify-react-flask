@@ -70,14 +70,23 @@ def get_homepage():
 @app.route('/listblogs', methods=['GET'])
 def get_listblogs():
     """ Fetch all blogs and return them in JSON"""
-    blogs = Blog.query.all() # fetch data from the DB
-    return jsonify([{
-        "id": blog.id,
-        "title": blog.title,
-        "body": blog.body,
-        "image": blog.image_filename,
-        "created_date": blog.created_date.isoformat() # Convert date time into string
-    } for blog in blogs])
+    try:
+        blogs = Blog.query.all() # fetch data from the DB
+        return jsonify({
+            "success": True,
+            "data": [{
+                "id": blog.id,
+                "title": blog.title,
+                "body": blog.body,
+                "image": blog.image_filename,
+                "created_date": blog.created_date.isoformat() # Convert date time into string
+            } for blog in blogs]
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "message": f"Error fetching blogs: {str(e)}"
+        }), 500
 
 
 # Submit Blog API
@@ -159,49 +168,104 @@ def detail(id):
         }), 500
 
 
-
-@app.route('/posts/edits/<int:id>', methods=['GET', 'POST'])
+# Edit the Blog After click on edit button
+@app.route('/blog/<int:id>/edit', methods=['PUT'])
 def edit_blog(id):
-    """
-    Handle blog post editing
-    GET: Display edit form
-    POST: Process edit form and update blog post
-    Requires user authentication
-    """
-    blog = Blog.query.get_or_404(id)
+    try:
+        blog = Blog.query.get_or_404(id)
+        
+        # Get form data
+        title = request.form.get('title')
+        body = request.form.get('body')
+        file = request.files.get('image')
+        
+        if not title and not body and not file:
+            return jsonify({
+                "success": False,
+                "message": "No data provided"
+            }), 400
 
-    if request.method == 'POST':
-        blog.title = request.form['title']
-        blog.body = request.form['body']
-
-        # Handle image updates
-        file = request.files.get('file')
+        # Update blog fields
+        if title:
+            blog.title = title
+        if body:
+            blog.body = body
+        
+        # Handle image update if provided
         if file and file.filename:
             # Remove old image if exists
             if blog.image_filename:
-                old_photo_path = os.path.join(current_app.static_folder, 'uploads', blog.image_filename)
-                if os.path.exists(old_photo_path):
-                    os.remove(old_photo_path)
+                old_image_path = os.path.join(app.config['BASEDIR'], 'static', 'uploads', blog.image_filename)
+                if os.path.exists(old_image_path):
+                    os.remove(old_image_path)
 
             # Save new image
-            new_filename = secure_filename(file.filename)
-            file_path = os.path.join(app.config['UPLOAD_FOLDER'], new_filename)
+            filename = secure_filename(file.filename)
+            upload_folder = os.path.join(app.config['BASEDIR'], 'static', 'uploads')
+            os.makedirs(upload_folder, exist_ok=True)
+            file_path = os.path.join(upload_folder, filename)
             file.save(file_path)
-            blog.image_filename = new_filename
+            blog.image_filename = filename
+        
+        # Update the update_date
+        blog.update_date = get_ist_time()
+        
+        try:
+            db.session.commit()
+            return jsonify({
+                "success": True,
+                "data": {
+                    "id": blog.id,
+                    "title": blog.title,
+                    "body": blog.body,
+                    "image_filename": blog.image_filename,
+                    "created_date": blog.created_date.isoformat(),
+                    "update_date": blog.update_date.isoformat()
+                }
+            })
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({
+                "success": False,
+                "message": f"Error updating blog: {str(e)}"
+            }), 500
+            
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "message": f"Error finding blog post: {str(e)}"
+        }), 404
 
-        # Handle image removal
-        elif 'remove_image' in request.form:
-            if blog.image_filename:
-                old_photo_path = os.path.join(current_app.static_folder, 'uploads', blog.image_filename)
-                if os.path.exists(old_photo_path):
-                    os.remove(old_photo_path)
-                blog.image_filename = None
 
+# Delete the Blog After click on delete button
+@app.route('/blog/<int:id>', methods=['DELETE'])
+def delete_post(id):
+    """
+    Delete a blog post and its associated image
+    """
+    try:
+        post_to_delete = Blog.query.get_or_404(id)
+
+        # Delete associated image file
+        if post_to_delete.image_filename:
+            photo_path = os.path.join(app.config['BASEDIR'], 'static', 'uploads', post_to_delete.image_filename)
+            if os.path.exists(photo_path):
+                os.remove(photo_path)
+
+        # Delete blog post from database
+        db.session.delete(post_to_delete)
         db.session.commit()
-        flash('Blog post updated successfully')
-        return redirect(url_for('listblogs'))
-    else:
-        return render_template('edit.html', blog=blog, current_image=blog.image_filename)
+        return jsonify({
+            "success": True,
+            "message": "Blog post deleted succesfully"
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            "success": False,
+            "message": f"Error deleting blog post {str(e)}"
+        }), 500
 
 
 
