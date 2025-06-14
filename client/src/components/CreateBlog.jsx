@@ -13,11 +13,20 @@ function CreateBlog() {
     setIsSubmitting(true);
 
     const formData = new FormData(e.target);
+    const token = localStorage.getItem('token');
+
+    if (!token) {
+      setError('Please login to create a blog');
+      setIsSubmitting(false);
+      navigate('/login');
+      return;
+    }
 
     try {
       const response = await axios.post('http://localhost:5000/submit', formData, {
         headers: {
-          'Content-Type': 'multipart/form-data'
+          'Content-Type': 'multipart/form-data',
+          'Authorization': `Bearer ${token}`
         }
       });
 
@@ -28,7 +37,14 @@ function CreateBlog() {
         setError(response.data.message || 'Failed to create blog');
       }
     } catch (err) {
-      setError(err.response?.data?.message || err.message || 'Failed to create blog');
+      console.error('Error creating blog:', err);
+      if (err.response?.status === 401) {
+        setError('Please login to create a blog');
+        localStorage.removeItem('token'); // Clear invalid token
+        navigate('/login');
+      } else {
+        setError(err.response?.data?.message || 'Failed to create blog. Please try again.');
+      }
     } finally {
       setIsSubmitting(false);
     }

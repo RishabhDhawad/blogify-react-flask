@@ -1,11 +1,13 @@
-from tkinter import image_names
-
 from flask import Flask, jsonify, render_template, request, redirect
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 import os
 from datetime import datetime
 import pytz
+from flask_login import UserMixin, LoginManager, login_user, login_required, logout_user
+from flask_restful import Resource, Api
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 
 # Timezone configuration
@@ -23,6 +25,18 @@ class Config:
 
 # Initialize extensions
 db = SQLAlchemy()
+api = Api()  # For JWT Token
+
+# User Model for authentication and user management
+class User(db.Model, UserMixin):
+    __tablename__ = 'users'
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(150), unique=True, nullable=False)
+    email = db.Column(db.String(150), unique=True, nullable=False)
+    password = db.Column(db.String(150), nullable=False)
+
+    def __repr__(self):
+        return f'<User {self.username}>'
 
 
 class Blog(db.Model):
@@ -41,6 +55,9 @@ class Blog(db.Model):
 app = Flask(__name__, static_folder='static')
 app.config.from_object(Config)  # Load configuration from Config class
 CORS(app)  # Enable CORS for cross-origin requests from React
+# JWT
+app.config['JWT_SECRET_KEY'] = 'your_jwt_secret_key'  # JWT Configuration
+jwt = JWTManager(app)  # JWT Initialization
 
 # Initialize the database
 db.init_app(app)
@@ -71,7 +88,8 @@ def get_homepage():
 def get_listblogs():
     """ Fetch all blogs and return them in JSON"""
     try:
-        blogs = Blog.query.all() # fetch data from the DB
+        # Order by created_date in descending order (newest first)
+        blogs = Blog.query.order_by(Blog.created_date.desc()).all()
         return jsonify({
             "success": True,
             "data": [{
@@ -91,8 +109,19 @@ def get_listblogs():
 
 # Submit Blog API
 @app.route('/submit', methods=['POST'])
+@jwt_required()
 def submit():
     try:
+        # Get current user from JWT token
+        current_user_id = get_jwt_identity()
+        user = User.query.get(current_user_id)
+        
+        if not user:
+            return jsonify({
+                "success": False,
+                "message": "User not found"
+            }), 401
+
         title = request.form.get('title', '').strip()
         body = request.form.get('body', '').strip()
 
@@ -170,6 +199,7 @@ def detail(id):
 
 # Edit the Blog After click on edit button
 @app.route('/blog/<int:id>/edit', methods=['PUT'])
+@jwt_required()
 def edit_blog(id):
     try:
         blog = Blog.query.get_or_404(id)
@@ -239,6 +269,7 @@ def edit_blog(id):
 
 # Delete the Blog After click on delete button
 @app.route('/blog/<int:id>', methods=['DELETE'])
+@jwt_required()
 def delete_post(id):
     """
     Delete a blog post and its associated image
@@ -268,6 +299,84 @@ def delete_post(id):
         }), 500
 
 
+# Register user after click on REGISTER USER
+@app.route('/register', methods=['POST'])
+def register():
+    data = request.get_json()
+    username = data.get('username')
+    email = data.get('email')
+    password = data.get('password')
+
+    if User.query.filter_by(email=email).first():
+        return jsonify({
+            "msg": "User already exists"
+        }), 409
+
+    hashed_password = generate_password_hash(password)
+    new_user = User(
+        username=username,
+        email=email,
+        password=hashed_password
+    )
+    db.session.add(new_user)
+    db.session.commit()
+
+    return jsonify({
+        "msg":"User registred successfully"
+    }), 201
+
+
+# Login API
+@app.route('/login', methods=['POST'])
+def login():
+    data = request.get_json()
+    email = data.get('email')
+    password = data.get('password')
+
+    user = User.query.filter_by(email=email).first()
+
+    if not user or not check_password_hash(user.password, password):
+        return jsonify ({
+            "msg": "Invalid Credentials"
+        }), 401
+
+    access_token = create_access_token(identity=user.id)
+    return jsonify({
+        "access_token": access_token,
+        "user": {
+            "id": user.id,
+            "username": user.username,
+            "email": user.email
+        }
+    }), 200
+
+# Get user data endpoint
+@app.route('/user', methods=['GET'])
+@jwt_required()
+def get_user():
+    try:
+        current_user_id = get_jwt_identity()
+        user = User.query.get(current_user_id)
+        
+        if not user:
+            return jsonify({
+                "success": False,
+                "message": "User not found"
+            }), 404
+
+        return jsonify({
+            "success": True,
+            "data": {
+                "id": user.id,
+                "username": user.username,
+                "email": user.email
+            }
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "message": str(e)
+        }), 500
 
 if __name__ == '__main__':
     with app.app_context():  # Needed for DB operations

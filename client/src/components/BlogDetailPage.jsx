@@ -9,6 +9,7 @@ function BlogDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [isEditing, setIsEditing] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [editedBlog, setEditedBlog] = useState({
     title: '',
     body: '',
@@ -16,6 +17,10 @@ function BlogDetailPage() {
   });
 
   useEffect(() => {
+    // Check if user is logged in
+    const token = localStorage.getItem('token');
+    setIsAuthenticated(!!token);
+
     const fetchBlog = async () => {
       try {
         setLoading(true);
@@ -44,6 +49,10 @@ function BlogDetailPage() {
   }, [id]);
 
   const handleEdit = () => {
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
     setIsEditing(true);
   };
 
@@ -70,6 +79,12 @@ function BlogDetailPage() {
       setLoading(true);
       setError('');
       
+      const token = localStorage.getItem('token');
+      if (!token) {
+        navigate('/login');
+        return;
+      }
+
       const formData = new FormData();
       formData.append('title', editedBlog.title);
       formData.append('body', editedBlog.body);
@@ -79,7 +94,8 @@ function BlogDetailPage() {
 
       const response = await axios.put(`http://localhost:5000/blog/${id}/edit`, formData, {
         headers: {
-          'Content-Type': 'multipart/form-data'
+          'Content-Type': 'multipart/form-data',
+          'Authorization': `Bearer ${token}`
         }
       });
 
@@ -90,27 +106,45 @@ function BlogDetailPage() {
         setError(response.data.message || 'Failed to update blog post');
       }
     } catch (err) {
-      setError('Failed to update blog post');
-      console.error('Error updating blog:', err);
+      if (err.response?.status === 401) {
+        navigate('/login');
+      } else {
+        setError('Failed to update blog post');
+        console.error('Error updating blog:', err);
+      }
     } finally {
       setLoading(false);
     }
   };
 
   const handleDelete = async () => {
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+
     if (window.confirm('Are you sure you want to delete this blog post?')) {
       try {
         setLoading(true);
         setError('');
-        const response = await axios.delete(`http://localhost:5000/blog/${id}`);
+        const token = localStorage.getItem('token');
+        const response = await axios.delete(`http://localhost:5000/blog/${id}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
         if (response.data.success) {
           navigate('/listblogs');
         } else {
           setError(response.data.message || 'Failed to delete blog post');
         }
       } catch (err) {
-        setError('Failed to delete blog post');
-        console.error('Error deleting blog:', err);
+        if (err.response?.status === 401) {
+          navigate('/login');
+        } else {
+          setError('Failed to delete blog post');
+          console.error('Error deleting blog:', err);
+        }
       } finally {
         setLoading(false);
       }
@@ -192,20 +226,22 @@ function BlogDetailPage() {
             </div>
           )}
           <p className="mb-4">{blog.body}</p>
-          <div>
-            <button 
-              onClick={handleEdit}
-              className="p-2 border border-gray-200 rounded mr-2 text-blue-600 hover:bg-blue-50"
-            >
-              Edit
-            </button>
-            <button 
-              onClick={handleDelete}
-              className="p-2 border border-gray-200 rounded text-red-600 hover:bg-red-50"
-            >
-              Delete
-            </button>
-          </div>
+          {isAuthenticated && (
+            <div>
+              <button 
+                onClick={handleEdit}
+                className="p-2 border border-gray-200 rounded mr-2 text-blue-600 hover:bg-blue-50"
+              >
+                Edit
+              </button>
+              <button 
+                onClick={handleDelete}
+                className="p-2 border border-gray-200 rounded text-red-600 hover:bg-red-50"
+              >
+                Delete
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

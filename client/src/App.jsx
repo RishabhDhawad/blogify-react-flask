@@ -22,7 +22,6 @@ function App() {
     <Router>
       <Navbar />
       <div className="p-4">
-        {/* <p>{message}</p> */}
         <Routes>
           <Route path="/" element={<Homepage />} />
           <Route path="/listblogs" element={<Listblogs />} />

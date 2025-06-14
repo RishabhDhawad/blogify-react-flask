@@ -1,25 +1,67 @@
 import React, { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 function Navbar() {
-  const [links, setLinks] = useState([]);
+  const [user, setUser] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    fetch("http://localhost:5000/api/navbar") // Flask port
-    .then(response => response.json())
-    .then(data => setLinks(data.links))
-    .catch(error => console.error("Error fetching navbar:", error))
-  }, [])
+    try {
+      // Check if user is logged in
+      const userData = localStorage.getItem('user');
+      if (userData) {
+        const parsedUser = JSON.parse(userData);
+        setUser(parsedUser);
+      }
+    } catch (error) {
+      console.error('Error loading user data:', error);
+      // Clear potentially corrupted data
+      localStorage.removeItem('user');
+      localStorage.removeItem('token');
+    }
+  }, []);
+
+  const handleLogout = () => {
+    try {
+      localStorage.removeItem('user');
+      localStorage.removeItem('token');
+      setUser(null);
+      navigate('/login');
+    } catch (error) {
+      console.error('Error during logout:', error);
+    }
+  };
 
   return (
     <nav className='bg-gray-800 p-3'>
-      <ul className='flex space-x-4'>
-        {links.map(link => (
-          <li key={link.url}>
-            <Link to={link.url} className='text-white '>{link.name}</Link>
-          </li>
-        ))}
-      </ul>
+      <div className='flex justify-between items-center'>
+        <div className='nav-left flex space-x-4'>
+          <Link to="/" className='text-white hover:text-gray-300'>Home</Link>
+          <Link to="/listblogs" className='text-white hover:text-gray-300'>List Blogs</Link>
+          {user && (
+            <Link to="/createblog" className='text-white hover:text-gray-300'>Create Blog</Link>
+          )}
+        </div>
+        
+        <div className='nav-right flex items-center space-x-4'>
+          {user ? (
+            <>
+              <span className='text-white'>Welcome, {user.username}!</span>
+              <button 
+                onClick={handleLogout}
+                className='text-white hover:text-gray-300'
+              >
+                Logout
+              </button>
+            </>
+          ) : (
+            <>
+              <Link to="/login" className='text-white hover:text-gray-300'>Login</Link>
+              <Link to="/register" className='text-white hover:text-gray-300'>Register</Link>
+            </>
+          )}
+        </div>
+      </div>
     </nav>
   )
 }
