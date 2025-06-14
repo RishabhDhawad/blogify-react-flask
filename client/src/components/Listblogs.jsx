@@ -26,29 +26,29 @@ function Listblogs() {
   }, []);
 
   if (loading) {
-    return <div>Loading...</div>;
+    return <div className="p-4 text-gray-600">Loading...</div>;
   }
 
   if (error) {
-    return <div>{error}</div>;
+    return <div className="p-4 text-red-500">{error}</div>;
   }
 
   return (
-    <div className="p-4">
-      <h2>All Blog Posts</h2>
+    <div className="w-full p-4">
+      <h2 className="text-2xl font-medium mb-6">All Blog Posts</h2>
       
       {blogs.length === 0 ? (
-        <p>No blog posts yet.</p>
+        <p className="text-gray-600">No blog posts yet.</p>
       ) : (
-        <div>
+        <div className="space-y-4">
           {blogs.map((blog) => (
-            <div key={blog.id} className="border p-4 mb-4">
-              <h3>
-                <Link to={`/blog/${blog.id}`}>
+            <div key={blog.id} className="border border-gray-200 rounded p-4">
+              <h3 className="text-lg">
+                <Link to={`/blog/${blog.id}`} className="text-blue-600 hover:text-blue-800">
                   {blog.title}
                 </Link>
               </h3>
-              <div>
+              <div className="text-sm text-gray-500 mt-1">
                 Published on {new Date(blog.created_date).toLocaleDateString('en-US', {
                   year: 'numeric',
                   month: 'long',

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import Navbar from './components/Navbar';
-import Homepage from './components/Homepage';
+import Homepage from './components/homepage';
 import Listblogs from './components/Listblogs';
 import CreateBlog from './components/CreateBlog';
 import BlogDetailPage from './components/BlogDetailPage';

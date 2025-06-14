@@ -22,6 +22,7 @@ function BlogDetailPage() {
         const response = await axios.get(`http://localhost:5000/blog/${id}`);
         
         if (response.data.success) {
+          console.log('Blog data:', response.data.data);
           setBlog(response.data.data);
           setEditedBlog({
             title: response.data.data.title,
@@ -93,68 +94,82 @@ function BlogDetailPage() {
   };
 
   if (loading) {
-    return <div>Loading...</div>;
+    return <div className="p-4 text-gray-600">Loading...</div>;
   }
 
   if (error) {
-    return <div>{error}</div>;
+    return <div className="p-4 text-red-500">{error}</div>;
   }
 
   if (!blog) {
-    return <div>Blog post not found</div>;
+    return <div className="p-4 text-gray-600">Blog post not found</div>;
   }
 
   return (
-    <div className="p-4">
+    <div className="w-full p-4">
       {isEditing ? (
-        <div>
+        <div className="border border-gray-200 rounded p-4">
           <input
             type="text"
             value={editedBlog.title}
             onChange={(e) => setEditedBlog({ ...editedBlog, title: e.target.value })}
-            className="w-full p-2 border mb-4"
+            className="w-full p-2 border border-gray-200 rounded mb-4 text-lg"
           />
           <textarea
             value={editedBlog.body}
             onChange={(e) => setEditedBlog({ ...editedBlog, body: e.target.value })}
-            className="w-full p-2 border mb-4"
+            className="w-full p-2 border border-gray-200 rounded mb-4 min-h-[200px]"
           />
           <div>
             <button 
               onClick={handleSave}
-              className="p-2 border mr-2"
+              className="p-2 border border-gray-200 rounded mr-2 text-blue-600 hover:bg-blue-50"
             >
               Save
             </button>
             <button 
               onClick={handleCancel}
-              className="p-2 border"
+              className="p-2 border border-gray-200 rounded text-gray-600 hover:bg-gray-50"
             >
               Cancel
             </button>
           </div>
         </div>
       ) : (
-        <div>
-          <h1>{blog.title}</h1>
-          <p>
+        <div className="border border-gray-200 rounded p-4">
+          <h1 className="text-2xl font-medium mb-4">{blog.title}</h1>
+          <p className="text-sm text-gray-500 mb-4">
             Published on {new Date(blog.created_date).toLocaleDateString('en-US', {
               year: 'numeric',
               month: 'long',
               day: 'numeric'
             })}
           </p>
-          <p>{blog.body}</p>
+          {blog.image_filename && (
+            <div className="mb-4">
+              <img 
+                src={`http://localhost:5000/static/uploads/${blog.image_filename}`}
+                alt={blog.title}
+                className="max-w-full h-auto rounded"
+                onError={(e) => {
+                  console.error('Error loading image:', e);
+                  console.log('Attempted image URL:', e.target.src);
+                  e.target.style.display = 'none';
+                }}
+              />
+            </div>
+          )}
+          <p className="mb-4">{blog.body}</p>
           <div>
             <button 
               onClick={handleEdit}
-              className="p-2 border mr-2"
+              className="p-2 border border-gray-200 rounded mr-2 text-blue-600 hover:bg-blue-50"
             >
               Edit
             </button>
             <button 
               onClick={handleDelete}
-              className="p-2 border"
+              className="p-2 border border-gray-200 rounded text-red-600 hover:bg-red-50"
             >
               Delete
             </button>
