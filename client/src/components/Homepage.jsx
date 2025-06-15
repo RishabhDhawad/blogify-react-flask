@@ -16,7 +16,6 @@ function Homepage() {
           setError(response.data.message || 'Failed to load message');
         }
       } catch (error) {
-        console.error("Error fetching message:", error);
         setError('Failed to load message from server');
       }
     };

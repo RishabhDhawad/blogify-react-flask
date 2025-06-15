@@ -31,27 +31,21 @@ function CreateBlog() {
     }
 
     try {
-      console.log('Submitting blog with token:', token); // Debug log
       const response = await axios.post(`${config.apiUrl}/api/submit`, formData, {
         headers: {
           'Authorization': token
         }
       });
 
-      console.log('Server response:', response.data); // Debug log
-
       if (response.data.success) {
-        // Clear form
         setTitle('');
         setBody('');
         setFile(null);
-        // Navigate to list blogs
         navigate('/list-blogs');
       } else {
         setError(response.data.message || 'Failed to create blog');
       }
     } catch (err) {
-      console.error('Error creating blog:', err);
       if (err.response?.status === 401) {
         setError('Your session has expired. Please login again.');
         localStorage.removeItem('token');

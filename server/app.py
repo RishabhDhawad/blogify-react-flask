@@ -56,7 +56,6 @@ class Blog(db.Model):
 def init_db():
     with app.app_context():
         db.create_all()
-        print("Database tables created successfully!")
 
 # Initialize database when the application starts
 init_db()
@@ -104,7 +103,6 @@ def register():
         })
 
     except Exception as e:
-        print(f"Registration error: {str(e)}")
         return jsonify({
             'success': False,
             'message': 'An error occurred during registration'
@@ -142,7 +140,6 @@ def login():
         })
 
     except Exception as e:
-        print(f"Login error: {str(e)}")
         return jsonify({
             'success': False,
             'message': 'An error occurred during login'
@@ -169,7 +166,6 @@ def logout():
         })
 
     except Exception as e:
-        print(f"Logout error: {str(e)}")
         return jsonify({
             'success': False,
             'message': 'An error occurred during logout'
@@ -178,37 +174,27 @@ def logout():
 @app.route('/api/submit', methods=['POST'])
 def submit_blog():
     try:
-        # Get and validate token
         token = request.headers.get('Authorization')
-        print(f"Received token: {token}")  # Debug log
-        
         if not token:
             return jsonify({
                 'success': False,
                 'message': 'No token provided'
             }), 401
 
-        # Find user by token
         user = User.query.filter_by(session_token=token).first()
-        print(f"Found user: {user.username if user else None}")  # Debug log
-        
         if not user:
             return jsonify({
                 'success': False,
                 'message': 'Invalid token'
             }), 401
 
-        # Get form data
         data = request.form
-        print(f"Received form data: {data}")  # Debug log
-        
         if not data or not all(k in data for k in ['title', 'body']):
             return jsonify({
                 'success': False,
                 'message': 'Missing required fields'
             }), 400
 
-        # Handle file upload if present
         image_path = None
         if 'file' in request.files:
             file = request.files['file']
@@ -217,9 +203,7 @@ def submit_blog():
                 file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
                 file.save(file_path)
                 image_path = filename
-                print(f"Saved image: {filename}")  # Debug log
 
-        # Create new blog
         new_blog = Blog(
             title=data['title'],
             body=data['body'],
@@ -227,10 +211,8 @@ def submit_blog():
             user_id=user.id
         )
         
-        # Save to database
         db.session.add(new_blog)
         db.session.commit()
-        print(f"Created blog with ID: {new_blog.id}")  # Debug log
 
         return jsonify({
             'success': True,
@@ -246,8 +228,7 @@ def submit_blog():
         })
 
     except Exception as e:
-        print(f"Submit blog error: {str(e)}")  # Debug log
-        db.session.rollback()  # Rollback on error
+        db.session.rollback()
         return jsonify({
             'success': False,
             'message': 'An error occurred while creating the blog'
@@ -269,7 +250,6 @@ def get_blogs():
             } for blog in blogs]
         })
     except Exception as e:
-        print(f"Get blogs error: {str(e)}")
         return jsonify({
             'success': False,
             'message': 'An error occurred while fetching blogs'
@@ -291,7 +271,6 @@ def get_blog(blog_id):
             }
         })
     except Exception as e:
-        print(f"Get blog error: {str(e)}")
         return jsonify({
             'success': False,
             'message': 'An error occurred while fetching the blog'
@@ -348,7 +327,6 @@ def edit_blog(id):
         })
 
     except Exception as e:
-        print(f"Edit blog error: {str(e)}")
         return jsonify({
             'success': False,
             'message': 'An error occurred while updating the blog'
@@ -387,7 +365,6 @@ def delete_blog(id):
         })
 
     except Exception as e:
-        print(f"Delete blog error: {str(e)}")
         return jsonify({
             'success': False,
             'message': 'An error occurred while deleting the blog'
@@ -401,7 +378,6 @@ def home():
             'message': 'Welcome to the Blog Application!'
         })
     except Exception as e:
-        print(f"Home endpoint error: {str(e)}")
         return jsonify({
             'success': False,
             'message': 'An error occurred while loading the homepage'

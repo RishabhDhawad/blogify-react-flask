@@ -29,7 +29,6 @@ function LoginPage() {
         setError(response.data.message || 'Login failed');
       }
     } catch (err) {
-      console.error('Login error:', err);
       if (err.response?.status === 401) {
         setError('Invalid username or password');
       } else {

@@ -32,7 +32,6 @@ function BlogDetailPage() {
         setError(response.data.message || 'Failed to load blog');
       }
     } catch (err) {
-      console.error('Error fetching blog:', err);
       setError('Failed to load blog. Please try again.');
     } finally {
       setLoading(false);
@@ -40,7 +39,8 @@ function BlogDetailPage() {
   };
 
   const handleEdit = () => {
-    if (!isAuthenticated) {
+    const token = localStorage.getItem('token');
+    if (!token) {
       navigate('/login');
       return;
     }
@@ -84,7 +84,6 @@ function BlogDetailPage() {
         setError(response.data.message || 'Failed to update blog');
       }
     } catch (err) {
-      console.error('Error updating blog:', err);
       if (err.response?.status === 401) {
         navigate('/login');
       } else {
@@ -122,7 +121,6 @@ function BlogDetailPage() {
         setError(response.data.message || 'Failed to delete blog');
       }
     } catch (err) {
-      console.error('Error deleting blog:', err);
       if (err.response?.status === 401) {
         navigate('/login');
       } else {
