@@ -1,27 +1,36 @@
 import React, { useEffect, useState } from 'react'
+import axios from 'axios'
+import config from '../config'
 
 function Homepage() {
   const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    // Fetch the message from the Flask backend
-    fetch("http://localhost:5000/") // Ensure this matches your Flask backend
-      .then(response => {
-        if (!response.ok) {
-          throw new Error('Network response was not ok');
+    const fetchMessage = async () => {
+      try {
+        const response = await axios.get(`${config.apiUrl}/api/home`);
+        if (response.data.success) {
+          setMessage(response.data.message);
+        } else {
+          setError(response.data.message || 'Failed to load message');
         }
-        return response.json();
-      })
-      .then(data => {
-        setMessage(data.message); // Set the message from the response
-      })
-      .catch(error => console.error("Error fetching message: ", error));
+      } catch (error) {
+        console.error("Error fetching message:", error);
+        setError('Failed to load message from server');
+      }
+    };
+
+    fetchMessage();
   }, []);
   
   return (
     <div className='flex flex-col items-center p-4'>
-      {/* <p>{message}</p> */}
-      <p className='text-lg text-blue-800'>{message}</p>
+      {error ? (
+        <p className='text-lg text-red-600'>{error}</p>
+      ) : (
+        <p className='text-lg text-blue-800'>{message}</p>
+      )}
     </div>
   )
 }

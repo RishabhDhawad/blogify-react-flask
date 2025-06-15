@@ -1,27 +1,60 @@
-import React, { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 
 function Navbar() {
-  const [links, setLinks] = useState([]);
+  const [user, setUser] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    fetch("http://localhost:5000/api/navbar") // Flask port
-    .then(response => response.json())
-    .then(data => setLinks(data.links))
-    .catch(error => console.error("Error fetching navbar:", error))
-  }, [])
+    const userData = localStorage.getItem('user');
+    if (userData) {
+      try {
+        setUser(JSON.parse(userData));
+      } catch (error) {
+        console.error('Error parsing user data:', error);
+        setUser(null);
+      }
+    }
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setUser(null);
+    navigate('/login');
+  };
 
   return (
-    <nav className='bg-gray-800 p-3'>
-      <ul className='flex space-x-4'>
-        {links.map(link => (
-          <li key={link.url}>
-            <Link to={link.url} className='text-white '>{link.name}</Link>
-          </li>
-        ))}
-      </ul>
+    <nav className="bg-gray-800 text-white p-4">
+      <div className="container mx-auto flex justify-between items-center">
+        <div className="flex space-x-4">
+          <Link to="/" className="hover:text-gray-300">Home</Link>
+          <Link to="/list-blogs" className="hover:text-gray-300">List Blog</Link>
+          {user && (
+            <Link to="/create-blog" className="hover:text-gray-300">Create Blog</Link>
+          )}
+        </div>
+        <div className="flex space-x-4">
+          {user ? (
+            <>
+              <span className="text-gray-300">Welcome, {user.username}</span>
+              <button
+                onClick={handleLogout}
+                className="hover:text-gray-300"
+              >
+                Logout
+              </button>
+            </>
+          ) : (
+            <>
+              <Link to="/login" className="hover:text-gray-300">Login</Link>
+              <Link to="/register" className="hover:text-gray-300">Register</Link>
+            </>
+          )}
+        </div>
+      </div>
     </nav>
-  )
+  );
 }
 
-export default Navbar
+export default Navbar;
