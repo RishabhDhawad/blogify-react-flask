@@ -1,49 +1,64 @@
-import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import axios from 'axios'
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import config from '../config';
 
 function CreateBlog() {
-  const navigate = useNavigate();
+  const [title, setTitle] = useState('');
+  const [body, setBody] = useState('');
+  const [file, setFile] = useState(null);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setIsSubmitting(true);
 
-    const formData = new FormData(e.target);
     const token = localStorage.getItem('token');
-
     if (!token) {
       setError('Please login to create a blog');
-      setIsSubmitting(false);
       navigate('/login');
       return;
     }
 
+    const formData = new FormData();
+    formData.append('title', title);
+    formData.append('body', body);
+    if (file) {
+      formData.append('file', file);
+    }
+
     try {
-      const response = await axios.post('http://localhost:5000/submit', formData, {
+      console.log('Submitting blog with token:', token); // Debug log
+      const response = await axios.post(`${config.apiUrl}/api/submit`, formData, {
         headers: {
-          'Content-Type': 'multipart/form-data',
-          'Authorization': `Bearer ${token}`
+          'Authorization': token
         }
       });
 
+      console.log('Server response:', response.data); // Debug log
+
       if (response.data.success) {
-        alert(response.data.message);
-        navigate('/listblogs');
+        // Clear form
+        setTitle('');
+        setBody('');
+        setFile(null);
+        // Navigate to list blogs
+        navigate('/list-blogs');
       } else {
         setError(response.data.message || 'Failed to create blog');
       }
     } catch (err) {
       console.error('Error creating blog:', err);
       if (err.response?.status === 401) {
-        setError('Please login to create a blog');
-        localStorage.removeItem('token'); // Clear invalid token
+        setError('Your session has expired. Please login again.');
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
         navigate('/login');
       } else {
-        setError(err.response?.data?.message || 'Failed to create blog. Please try again.');
+        setError('An error occurred while creating the blog');
       }
     } finally {
       setIsSubmitting(false);
@@ -51,68 +66,72 @@ function CreateBlog() {
   };
 
   return (
-    <div className="p-4">
-      <h1 className="text-xl font-semibold mb-4">Create New Blog</h1>
-
+    <div className="max-w-2xl mx-auto p-4">
+      <h2 className="text-2xl font-bold mb-4">Create New Blog</h2>
+      
       {error && (
         <div className="mb-4 p-2 bg-red-100 text-red-700 rounded">
           {error}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} encType="multipart/form-data">
-
-        {/* Title Input Field */}
+      <form onSubmit={handleSubmit}>
         <div className="mb-4">
-          <label htmlFor="title" className="block mb-1">Blog Title</label>
+          <label htmlFor="title" className="block text-sm font-medium text-gray-700">
+            Title
+          </label>
           <input
-            id="title"
-            name="title"
-            required
             type="text"
+            id="title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            required
             className="w-full border border-gray-300 p-2 rounded"
             disabled={isSubmitting}
           />
         </div>
 
-        {/* Content Textarea Field */}
         <div className="mb-4">
-          <label htmlFor="body" className="block mb-1">Blog Content</label>
+          <label htmlFor="body" className="block text-sm font-medium text-gray-700">
+            Content
+          </label>
           <textarea
             id="body"
-            name="body"
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
             required
-            className="w-full border border-gray-300 p-2 rounded resize-y min-h-[100px]"
-            disabled={isSubmitting}
-          />
-        </div>
-        
-        {/* File Upload Field */}
-        <div className="mb-4">
-          <label htmlFor="file" className="block mb-1">Upload Image (Optional)</label>
-          <input
-            accept="image/*"  // this only allow image files
-            id="file"
-            name="file"
-            type="file"
+            rows="6"
             className="w-full border border-gray-300 p-2 rounded"
             disabled={isSubmitting}
           />
         </div>
 
-        {/* Submit Button  */}
+        <div className="mb-4">
+          <label htmlFor="file" className="block text-sm font-medium text-gray-700">
+            Image (optional)
+          </label>
+          <input
+            type="file"
+            id="file"
+            onChange={(e) => setFile(e.target.files[0])}
+            accept="image/*"
+            className="w-full border border-gray-300 p-2 rounded"
+            disabled={isSubmitting}
+          />
+        </div>
+
         <button
           type="submit"
-          className={`bg-blue-500 text-white py-2 px-4 rounded transition-colors ${
+          className={`w-full bg-blue-500 text-white py-2 rounded ${
             isSubmitting ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-600'
           }`}
-          disabled={isSubmitting}  // Disable button during submission
+          disabled={isSubmitting}
         >
-          {isSubmitting ? 'Submitting...' : 'Submit'}
+          {isSubmitting ? 'Creating...' : 'Create Blog'}
         </button>
       </form>
     </div>
-  )
+  );
 }
 
-export default CreateBlog
+export default CreateBlog;

@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import config from '../config';
 
 function LoginPage() {
-  const [formData, setFormData] = useState({ email: '', password: '' });
+  const [formData, setFormData] = useState({ username: '', password: '' });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
@@ -17,25 +19,22 @@ function LoginPage() {
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://localhost:5000/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        // Store token and user data
-        localStorage.setItem('token', data.access_token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        navigate('/listblogs');
+      const response = await axios.post(`${config.apiUrl}/api/login`, formData);
+      
+      if (response.data.success) {
+        localStorage.setItem('token', response.data.data.token);
+        localStorage.setItem('user', JSON.stringify(response.data.data.user));
+        navigate('/list-blogs');
       } else {
-        setError(data.msg || 'Login failed');
+        setError(response.data.message || 'Login failed');
       }
     } catch (err) {
       console.error('Login error:', err);
-      setError('Something went wrong. Please try again.');
+      if (err.response?.status === 401) {
+        setError('Invalid username or password');
+      } else {
+        setError('An error occurred during login');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -44,7 +43,7 @@ function LoginPage() {
   return (
     <div className="max-w-md mx-auto p-4">
       <h2 className="text-xl font-semibold mb-4">Login</h2>
-
+      
       {error && (
         <div className="mb-4 p-2 bg-red-100 text-red-700 rounded">
           {error}
@@ -53,22 +52,30 @@ function LoginPage() {
 
       <form onSubmit={handleSubmit}>
         <div className="mb-3">
+          <label htmlFor="username" className="block text-sm font-medium text-gray-700">
+            Username
+          </label>
           <input
-            type="email"
-            name="email"
-            placeholder="Email"
+            type="text"
+            id="username"
+            name="username"
+            placeholder="Enter your username"
             required
-            value={formData.email}
+            value={formData.username}
             onChange={handleChange}
             className="w-full border border-gray-300 p-2 rounded"
             disabled={isLoading}
           />
         </div>
         <div className="mb-3">
+          <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+            Password
+          </label>
           <input
             type="password"
+            id="password"
             name="password"
-            placeholder="Password"
+            placeholder="Enter your password"
             required
             value={formData.password}
             onChange={handleChange}

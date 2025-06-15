@@ -1,69 +1,60 @@
-import React, { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 
 function Navbar() {
   const [user, setUser] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
-    try {
-      // Check if user is logged in
-      const userData = localStorage.getItem('user');
-      if (userData) {
-        const parsedUser = JSON.parse(userData);
-        setUser(parsedUser);
+    const userData = localStorage.getItem('user');
+    if (userData) {
+      try {
+        setUser(JSON.parse(userData));
+      } catch (error) {
+        console.error('Error parsing user data:', error);
+        setUser(null);
       }
-    } catch (error) {
-      console.error('Error loading user data:', error);
-      // Clear potentially corrupted data
-      localStorage.removeItem('user');
-      localStorage.removeItem('token');
     }
   }, []);
 
   const handleLogout = () => {
-    try {
-      localStorage.removeItem('user');
-      localStorage.removeItem('token');
-      setUser(null);
-      navigate('/login');
-    } catch (error) {
-      console.error('Error during logout:', error);
-    }
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setUser(null);
+    navigate('/login');
   };
 
   return (
-    <nav className='bg-gray-800 p-3'>
-      <div className='flex justify-between items-center'>
-        <div className='nav-left flex space-x-4'>
-          <Link to="/" className='text-white hover:text-gray-300'>Home</Link>
-          <Link to="/listblogs" className='text-white hover:text-gray-300'>List Blogs</Link>
+    <nav className="bg-gray-800 text-white p-4">
+      <div className="container mx-auto flex justify-between items-center">
+        <div className="flex space-x-4">
+          <Link to="/" className="hover:text-gray-300">Home</Link>
+          <Link to="/list-blogs" className="hover:text-gray-300">List Blog</Link>
           {user && (
-            <Link to="/createblog" className='text-white hover:text-gray-300'>Create Blog</Link>
+            <Link to="/create-blog" className="hover:text-gray-300">Create Blog</Link>
           )}
         </div>
-        
-        <div className='nav-right flex items-center space-x-4'>
+        <div className="flex space-x-4">
           {user ? (
             <>
-              <span className='text-white'>Welcome, {user.username}!</span>
-              <button 
+              <span className="text-gray-300">Welcome, {user.username}</span>
+              <button
                 onClick={handleLogout}
-                className='text-white hover:text-gray-300'
+                className="hover:text-gray-300"
               >
                 Logout
               </button>
             </>
           ) : (
             <>
-              <Link to="/login" className='text-white hover:text-gray-300'>Login</Link>
-              <Link to="/register" className='text-white hover:text-gray-300'>Register</Link>
+              <Link to="/login" className="hover:text-gray-300">Login</Link>
+              <Link to="/register" className="hover:text-gray-300">Register</Link>
             </>
           )}
         </div>
       </div>
     </nav>
-  )
+  );
 }
 
-export default Navbar
+export default Navbar;

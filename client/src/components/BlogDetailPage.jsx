@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import axios from 'axios'
+import config from '../config'
 
 function BlogDetailPage() {
   const { id } = useParams();
@@ -9,44 +10,34 @@ function BlogDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [isEditing, setIsEditing] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [editedBlog, setEditedBlog] = useState({
-    title: '',
-    body: '',
-    image: null
-  });
+  const [editedTitle, setEditedTitle] = useState('');
+  const [editedBody, setEditedBody] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
-    // Check if user is logged in
-    const token = localStorage.getItem('token');
-    setIsAuthenticated(!!token);
-
-    const fetchBlog = async () => {
-      try {
-        setLoading(true);
-        setError('');
-        const response = await axios.get(`http://localhost:5000/blog/${id}`);
-        
-        if (response.data.success) {
-          setBlog(response.data.data);
-          setEditedBlog({
-            title: response.data.data.title,
-            body: response.data.data.body,
-            image: null
-          });
-        } else {
-          setError(response.data.message || 'Failed to load blog post');
-        }
-      } catch (err) {
-        setError('Failed to load blog post');
-        console.error('Error fetching blog:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchBlog();
   }, [id]);
+
+  const fetchBlog = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      const response = await axios.get(`${config.apiUrl}/api/blog/${id}`);
+      if (response.data.success) {
+        setBlog(response.data.data);
+        setEditedTitle(response.data.data.title);
+        setEditedBody(response.data.data.body);
+      } else {
+        setError(response.data.message || 'Failed to load blog');
+      }
+    } catch (err) {
+      console.error('Error fetching blog:', err);
+      setError('Failed to load blog. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleEdit = () => {
     if (!isAuthenticated) {
@@ -58,96 +49,87 @@ function BlogDetailPage() {
 
   const handleCancel = () => {
     setIsEditing(false);
-    setEditedBlog({
-      title: blog.title,
-      body: blog.body,
-      image: null
-    });
-  };
-
-  const handleImageChange = (e) => {
-    if (e.target.files && e.target.files[0]) {
-      setEditedBlog({
-        ...editedBlog,
-        image: e.target.files[0]
-      });
-    }
+    setEditedTitle(blog.title);
+    setEditedBody(blog.body);
   };
 
   const handleSave = async () => {
     try {
-      setLoading(true);
+      setIsSubmitting(true);
       setError('');
-      
+
       const token = localStorage.getItem('token');
       if (!token) {
         navigate('/login');
         return;
       }
 
-      const formData = new FormData();
-      formData.append('title', editedBlog.title);
-      formData.append('body', editedBlog.body);
-      if (editedBlog.image) {
-        formData.append('image', editedBlog.image);
-      }
-
-      const response = await axios.put(`http://localhost:5000/blog/${id}/edit`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          'Authorization': `Bearer ${token}`
+      const response = await axios.put(
+        `${config.apiUrl}/api/blog/${id}/edit`,
+        {
+          title: editedTitle,
+          body: editedBody
+        },
+        {
+          headers: {
+            'Authorization': token
+          }
         }
-      });
+      );
 
       if (response.data.success) {
         setBlog(response.data.data);
         setIsEditing(false);
       } else {
-        setError(response.data.message || 'Failed to update blog post');
+        setError(response.data.message || 'Failed to update blog');
       }
     } catch (err) {
+      console.error('Error updating blog:', err);
       if (err.response?.status === 401) {
         navigate('/login');
       } else {
-        setError('Failed to update blog post');
-        console.error('Error updating blog:', err);
+        setError('An error occurred while updating the blog');
       }
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!isAuthenticated) {
-      navigate('/login');
+    if (!window.confirm('Are you sure you want to delete this blog?')) {
       return;
     }
 
-    if (window.confirm('Are you sure you want to delete this blog post?')) {
-      try {
-        setLoading(true);
-        setError('');
-        const token = localStorage.getItem('token');
-        const response = await axios.delete(`http://localhost:5000/blog/${id}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        if (response.data.success) {
-          navigate('/listblogs');
-        } else {
-          setError(response.data.message || 'Failed to delete blog post');
-        }
-      } catch (err) {
-        if (err.response?.status === 401) {
-          navigate('/login');
-        } else {
-          setError('Failed to delete blog post');
-          console.error('Error deleting blog:', err);
-        }
-      } finally {
-        setLoading(false);
+    try {
+      setIsDeleting(true);
+      setError('');
+
+      const token = localStorage.getItem('token');
+      if (!token) {
+        navigate('/login');
+        return;
       }
+
+      const response = await axios.delete(`${config.apiUrl}/api/blog/${id}`, {
+        headers: {
+          'Authorization': token
+        }
+      });
+
+      if (response.data.success) {
+        navigate('/list-blogs');
+      } else {
+        setError(response.data.message || 'Failed to delete blog');
+      }
+    } catch (err) {
+      console.error('Error deleting blog:', err);
+      if (err.response?.status === 401) {
+        navigate('/login');
+      } else {
+        setError('An error occurred while deleting the blog');
+      }
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -155,90 +137,102 @@ function BlogDetailPage() {
     return <div className="p-4 text-gray-600">Loading...</div>;
   }
 
-  if (error) {
+  if (error && !blog) {
     return <div className="p-4 text-red-500">{error}</div>;
   }
 
-  if (!blog) {
-    return <div className="p-4 text-gray-600">Blog post not found</div>;
-  }
+  const isAuthor = blog && localStorage.getItem('user') && 
+    JSON.parse(localStorage.getItem('user')).username === blog.author;
 
   return (
-    <div className="w-full p-4">
+    <div className="max-w-4xl mx-auto p-4">
+      {error && (
+        <div className="mb-4 p-2 bg-red-100 text-red-700 rounded">
+          {error}
+        </div>
+      )}
+
       {isEditing ? (
-        <div className="border border-gray-200 rounded p-4">
-          <input
-            type="text"
-            value={editedBlog.title}
-            onChange={(e) => setEditedBlog({ ...editedBlog, title: e.target.value })}
-            className="w-full p-2 border border-gray-200 rounded mb-4 text-lg"
-          />
-          <textarea
-            value={editedBlog.body}
-            onChange={(e) => setEditedBlog({ ...editedBlog, body: e.target.value })}
-            className="w-full p-2 border border-gray-200 rounded mb-4 min-h-[200px]"
-          />
-          <div className="mb-4">
-            <label className="block mb-1">Update Image (Optional)</label>
+        <div className="space-y-4">
+          <div>
+            <label htmlFor="title" className="block text-sm font-medium text-gray-700">
+              Title
+            </label>
             <input
-              type="file"
-              accept="image/*"
-              onChange={handleImageChange}
-              className="w-full border border-gray-200 p-2 rounded"
+              type="text"
+              id="title"
+              value={editedTitle}
+              onChange={(e) => setEditedTitle(e.target.value)}
+              className="w-full border border-gray-300 p-2 rounded"
+              disabled={isSubmitting}
             />
           </div>
           <div>
-            <button 
+            <label htmlFor="body" className="block text-sm font-medium text-gray-700">
+              Content
+            </label>
+            <textarea
+              id="body"
+              value={editedBody}
+              onChange={(e) => setEditedBody(e.target.value)}
+              rows="6"
+              className="w-full border border-gray-300 p-2 rounded"
+              disabled={isSubmitting}
+            />
+          </div>
+          <div className="flex space-x-2">
+            <button
               onClick={handleSave}
-              className="p-2 border border-gray-200 rounded mr-2 text-blue-600 hover:bg-blue-50"
+              disabled={isSubmitting}
+              className={`bg-blue-500 text-white px-4 py-2 rounded ${
+                isSubmitting ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-600'
+              }`}
             >
-              Save
+              {isSubmitting ? 'Saving...' : 'Save'}
             </button>
-            <button 
+            <button
               onClick={handleCancel}
-              className="p-2 border border-gray-200 rounded text-gray-600 hover:bg-gray-50"
+              disabled={isSubmitting}
+              className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
             >
               Cancel
             </button>
           </div>
         </div>
       ) : (
-        <div className="border border-gray-200 rounded p-4">
-          <h1 className="text-2xl font-medium mb-4">{blog.title}</h1>
-          <p className="text-sm text-gray-500 mb-4">
-            Published on {new Date(blog.created_date).toLocaleDateString('en-US', {
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric'
-            })}
-          </p>
-          {blog.image_filename && (
-            <div className="mb-4">
-              <img 
-                src={`http://localhost:5000/static/uploads/${blog.image_filename}`}
-                alt={blog.title}
-                className="max-w-full h-auto rounded"
-                onError={(e) => {
-                  console.error('Error loading image:', e);
-                  e.target.style.display = 'none';
-                }}
-              />
-            </div>
+        <div>
+          <h1 className="text-3xl font-bold mb-4">{blog.title}</h1>
+          {blog.image && (
+            <img
+              src={`${config.apiUrl}/static/uploads/${blog.image}`}
+              alt={blog.title}
+              className="max-w-full h-auto mb-4 rounded"
+              onError={(e) => {
+                e.target.style.display = 'none';
+              }}
+            />
           )}
-          <p className="mb-4">{blog.body}</p>
-          {isAuthenticated && (
-            <div>
-              <button 
+          <p className="text-gray-600 whitespace-pre-wrap mb-4">{blog.body}</p>
+          <p className="text-sm text-gray-500 mb-4">
+            Created by {blog.author} on {new Date(blog.created_at).toLocaleDateString()}
+          </p>
+          
+          {isAuthor && (
+            <div className="flex space-x-2">
+              <button
                 onClick={handleEdit}
-                className="p-2 border border-gray-200 rounded mr-2 text-blue-600 hover:bg-blue-50"
+                className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
               >
                 Edit
               </button>
-              <button 
+              <button
                 onClick={handleDelete}
-                className="p-2 border border-gray-200 rounded text-red-600 hover:bg-red-50"
+                disabled={isDeleting}
+                className={`bg-red-500 text-white px-4 py-2 rounded ${
+                  isDeleting ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-600'
+                }`}
               >
-                Delete
+                {isDeleting ? 'Deleting...' : 'Delete'}
               </button>
             </div>
           )}

@@ -1,384 +1,425 @@
-from flask import Flask, jsonify, render_template, request, redirect
-from flask_cors import CORS
+from flask import Flask, request, jsonify, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
-import os
-from datetime import datetime
-import pytz
-from flask_login import UserMixin, LoginManager, login_user, login_required, logout_user
-from flask_restful import Resource, Api
-from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
+import os
+import secrets
+from datetime import datetime
 from werkzeug.utils import secure_filename
 
-# Timezone configuration
-IST = pytz.timezone('Asia/Kolkata')
+app = Flask(__name__, static_folder='../client/dist')
+CORS(app)
 
-def get_ist_time():
-    return datetime.now(IST)
+# Database configuration
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///blog.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SECRET_KEY'] = secrets.token_hex(16)
+app.config['UPLOAD_FOLDER'] = 'uploads'
 
-# Configuration class
-class Config:
-    SECRET_KEY = os.environ.get('FLASK_SECRET_KEY', 'default_secret_key')
-    BASEDIR = os.path.abspath(os.path.dirname(__file__))
-    SQLALCHEMY_DATABASE_URI = f'sqlite:///{os.path.join(BASEDIR, "BlogPost.db")}'
-    SQLALCHEMY_TRACK_MODIFICATIONS = False
+# Create uploads directory if it doesn't exist
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-# Initialize extensions
-db = SQLAlchemy()
-api = Api()  # For JWT Token
+db = SQLAlchemy(app)
 
-# User Model for authentication and user management
-class User(db.Model, UserMixin):
+# Models
+class User(db.Model):
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(150), unique=True, nullable=False)
-    email = db.Column(db.String(150), unique=True, nullable=False)
-    password = db.Column(db.String(150), nullable=False)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    password = db.Column(db.String(200), nullable=False)
+    session_token = db.Column(db.String(100), unique=True)
+    blogs = db.relationship('Blog', backref='author', lazy=True)
 
-    def __repr__(self):
-        return f'<User {self.username}>'
+    def set_password(self, password):
+        self.password = generate_password_hash(password)
 
+    def check_password(self, password):
+        return check_password_hash(self.password, password)
+
+    def generate_session_token(self):
+        token = secrets.token_hex(16)
+        self.session_token = token
+        db.session.commit()
+        return token
 
 class Blog(db.Model):
     __tablename__ = 'blogs'
     id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(255), nullable=False)
+    title = db.Column(db.String(100), nullable=False)
     body = db.Column(db.Text, nullable=False)
-    image_filename = db.Column(db.String(255))
-    created_date = db.Column(db.DateTime, default=get_ist_time)
-    update_date = db.Column(db.DateTime, default=get_ist_time, onupdate=get_ist_time)
+    image = db.Column(db.String(200))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
 
-    def __repr__(self):
-        return f'<Blog {self.title}>'
+# Initialize database
+def init_db():
+    with app.app_context():
+        db.create_all()
+        print("Database tables created successfully!")
 
-# Initialize the Flask application
-app = Flask(__name__, static_folder='static')
-app.config.from_object(Config)  # Load configuration from Config class
-CORS(app)  # Enable CORS for cross-origin requests from React
-# JWT
-app.config['JWT_SECRET_KEY'] = 'your_jwt_secret_key'  # JWT Configuration
-jwt = JWTManager(app)  # JWT Initialization
+# Initialize database when the application starts
+init_db()
 
-# Initialize the database
-db.init_app(app)
-
-
-# API for Navbar
-@app.route('/api/navbar', methods=['GET'])
-def get_navbar():
-    return jsonify({
-        "links": [
-            {"name": "Home", "url": "/"},
-            {"name": "List Blogs", "url": "/listblogs"},
-            {"name": "Create Blog", "url": "/createblog"},
-            {"name": "Login", "url": "/login"},
-            {"name": "Register", "url": "/register"},
-        ]
-    })
-
-# Home Page
-@app.route('/')
-def get_homepage():
-    return jsonify({
-        "message": "Welcome to my Blog"
-    })
-
-# List all Blogs API
-@app.route('/listblogs', methods=['GET'])
-def get_listblogs():
-    """ Fetch all blogs and return them in JSON"""
+@app.route('/api/register', methods=['POST'])
+def register():
     try:
-        # Order by created_date in descending order (newest first)
-        blogs = Blog.query.order_by(Blog.created_date.desc()).all()
+        data = request.get_json()
+        if not data or not all(k in data for k in ['username', 'email', 'password']):
+            return jsonify({
+                'success': False,
+                'message': 'Missing required fields'
+            }), 400
+
+        if User.query.filter_by(username=data['username']).first():
+            return jsonify({
+                'success': False,
+                'message': 'Username already exists'
+            }), 400
+
+        if User.query.filter_by(email=data['email']).first():
+            return jsonify({
+                'success': False,
+                'message': 'Email already exists'
+            }), 400
+
+        new_user = User(username=data['username'], email=data['email'])
+        new_user.set_password(data['password'])
+        db.session.add(new_user)
+        db.session.commit()
+
+        token = new_user.generate_session_token()
+
         return jsonify({
-            "success": True,
-            "data": [{
-                "id": blog.id,
-                "title": blog.title,
-                "body": blog.body,
-                "image": blog.image_filename,
-                "created_date": blog.created_date.isoformat() # Convert date time into string
+            'success': True,
+            'message': 'Registration successful',
+            'data': {
+                'token': token,
+                'user': {
+                    'id': new_user.id,
+                    'username': new_user.username,
+                    'email': new_user.email
+                }
+            }
+        })
+
+    except Exception as e:
+        print(f"Registration error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': 'An error occurred during registration'
+        }), 500
+
+@app.route('/api/login', methods=['POST'])
+def login():
+    try:
+        data = request.get_json()
+        if not data or not all(k in data for k in ['username', 'password']):
+            return jsonify({
+                'success': False,
+                'message': 'Missing username or password'
+            }), 400
+
+        user = User.query.filter_by(username=data['username']).first()
+        if not user or not user.check_password(data['password']):
+            return jsonify({
+                'success': False,
+                'message': 'Invalid username or password'
+            }), 401
+
+        token = user.generate_session_token()
+        return jsonify({
+            'success': True,
+            'message': 'Login successful',
+            'data': {
+                'token': token,
+                'user': {
+                    'id': user.id,
+                    'username': user.username,
+                    'email': user.email
+                }
+            }
+        })
+
+    except Exception as e:
+        print(f"Login error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': 'An error occurred during login'
+        }), 500
+
+@app.route('/api/logout', methods=['POST'])
+def logout():
+    try:
+        token = request.headers.get('Authorization')
+        if not token:
+            return jsonify({
+                'success': False,
+                'message': 'No token provided'
+            }), 401
+
+        user = User.query.filter_by(session_token=token).first()
+        if user:
+            user.session_token = None
+            db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Logged out successfully'
+        })
+
+    except Exception as e:
+        print(f"Logout error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': 'An error occurred during logout'
+        }), 500
+
+@app.route('/api/submit', methods=['POST'])
+def submit_blog():
+    try:
+        # Get and validate token
+        token = request.headers.get('Authorization')
+        print(f"Received token: {token}")  # Debug log
+        
+        if not token:
+            return jsonify({
+                'success': False,
+                'message': 'No token provided'
+            }), 401
+
+        # Find user by token
+        user = User.query.filter_by(session_token=token).first()
+        print(f"Found user: {user.username if user else None}")  # Debug log
+        
+        if not user:
+            return jsonify({
+                'success': False,
+                'message': 'Invalid token'
+            }), 401
+
+        # Get form data
+        data = request.form
+        print(f"Received form data: {data}")  # Debug log
+        
+        if not data or not all(k in data for k in ['title', 'body']):
+            return jsonify({
+                'success': False,
+                'message': 'Missing required fields'
+            }), 400
+
+        # Handle file upload if present
+        image_path = None
+        if 'file' in request.files:
+            file = request.files['file']
+            if file and file.filename:
+                filename = secure_filename(file.filename)
+                file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                file.save(file_path)
+                image_path = filename
+                print(f"Saved image: {filename}")  # Debug log
+
+        # Create new blog
+        new_blog = Blog(
+            title=data['title'],
+            body=data['body'],
+            image=image_path,
+            user_id=user.id
+        )
+        
+        # Save to database
+        db.session.add(new_blog)
+        db.session.commit()
+        print(f"Created blog with ID: {new_blog.id}")  # Debug log
+
+        return jsonify({
+            'success': True,
+            'message': 'Blog created successfully',
+            'data': {
+                'id': new_blog.id,
+                'title': new_blog.title,
+                'body': new_blog.body,
+                'image': new_blog.image,
+                'created_at': new_blog.created_at.isoformat(),
+                'author': user.username
+            }
+        })
+
+    except Exception as e:
+        print(f"Submit blog error: {str(e)}")  # Debug log
+        db.session.rollback()  # Rollback on error
+        return jsonify({
+            'success': False,
+            'message': 'An error occurred while creating the blog'
+        }), 500
+
+@app.route('/api/blogs', methods=['GET'])
+def get_blogs():
+    try:
+        blogs = Blog.query.order_by(Blog.created_at.desc()).all()
+        return jsonify({
+            'success': True,
+            'data': [{
+                'id': blog.id,
+                'title': blog.title,
+                'body': blog.body,
+                'image': blog.image,
+                'created_at': blog.created_at.isoformat(),
+                'author': blog.author.username
             } for blog in blogs]
         })
     except Exception as e:
+        print(f"Get blogs error: {str(e)}")
         return jsonify({
-            "success": False,
-            "message": f"Error fetching blogs: {str(e)}"
+            'success': False,
+            'message': 'An error occurred while fetching blogs'
         }), 500
 
-
-# Submit Blog API
-@app.route('/submit', methods=['POST'])
-@jwt_required()
-def submit():
+@app.route('/api/blog/<int:blog_id>', methods=['GET'])
+def get_blog(blog_id):
     try:
-        # Get current user from JWT token
-        current_user_id = get_jwt_identity()
-        user = User.query.get(current_user_id)
-        
-        if not user:
-            return jsonify({
-                "success": False,
-                "message": "User not found"
-            }), 401
-
-        title = request.form.get('title', '').strip()
-        body = request.form.get('body', '').strip()
-
-        if not title or not body:
-            return jsonify({
-                "success": False,
-                "message": "Title and body are required"
-            }), 400  # Validation Error
-
-        file = request.files.get('file')
-        image_filename = None
-
-        # Handle File Upload
-        if file and file.filename:
-            filename = secure_filename(file.filename)
-            if filename:
-                # Create uploads directory if it doesn't exist
-                upload_folder = os.path.join(app.config['BASEDIR'], 'static', 'uploads')
-                os.makedirs(upload_folder, exist_ok=True)
-                
-                file_path = os.path.join(upload_folder, filename)
-                file.save(file_path)
-                image_filename = filename
-            else:
-                return jsonify({
-                    "success": False,
-                    "message": "File type not allowed"
-                }), 400  # Validation Errors
-
-        # Save blog to database
-        new_blog = Blog(
-            title=title,
-            body=body,
-            image_filename=image_filename
-        )
-        db.session.add(new_blog)
-        db.session.commit()
-
+        blog = Blog.query.get_or_404(blog_id)
         return jsonify({
-            "success": True,
-            "message": "Blog Post created successfully",
-            "blog_id": new_blog.id
-        }), 201  # Successful Creation
-
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({
-            "success": False,
-            "message": f"Error creating blog post: {str(e)}"
-        }), 500     # Server Error
-
-
-# Detail page - shows a specific blog post
-@app.route('/blog/<int:id>', methods=['GET'])
-def detail(id):
-    try:
-        blog = Blog.query.get_or_404(id)
-        return jsonify({
-            "success": True,
-            "data": {
-                "id": blog.id,
-                "title": blog.title,
-                "body": blog.body,
-                "image_filename": blog.image_filename,
-                "created_date": blog.created_date.isoformat(),
-                "update_date": blog.update_date.isoformat()
+            'success': True,
+            'data': {
+                'id': blog.id,
+                'title': blog.title,
+                'body': blog.body,
+                'image': blog.image,
+                'created_at': blog.created_at.isoformat(),
+                'author': blog.author.username
             }
         })
     except Exception as e:
+        print(f"Get blog error: {str(e)}")
         return jsonify({
-            "success": False,
-            "message": f"Error fetching blog post: {str(e)}"
+            'success': False,
+            'message': 'An error occurred while fetching the blog'
         }), 500
 
-
-# Edit the Blog After click on edit button
-@app.route('/blog/<int:id>/edit', methods=['PUT'])
-@jwt_required()
+@app.route('/api/blog/<int:id>/edit', methods=['PUT'])
 def edit_blog(id):
     try:
-        blog = Blog.query.get_or_404(id)
-        
-        # Get form data
-        title = request.form.get('title')
-        body = request.form.get('body')
-        file = request.files.get('image')
-        
-        if not title and not body and not file:
+        token = request.headers.get('Authorization')
+        if not token:
             return jsonify({
-                "success": False,
-                "message": "No data provided"
-            }), 400
+                'success': False,
+                'message': 'No token provided'
+            }), 401
 
-        # Update blog fields
-        if title:
-            blog.title = title
-        if body:
-            blog.body = body
-        
-        # Handle image update if provided
-        if file and file.filename:
-            # Remove old image if exists
-            if blog.image_filename:
-                old_image_path = os.path.join(app.config['BASEDIR'], 'static', 'uploads', blog.image_filename)
-                if os.path.exists(old_image_path):
-                    os.remove(old_image_path)
-
-            # Save new image
-            filename = secure_filename(file.filename)
-            upload_folder = os.path.join(app.config['BASEDIR'], 'static', 'uploads')
-            os.makedirs(upload_folder, exist_ok=True)
-            file_path = os.path.join(upload_folder, filename)
-            file.save(file_path)
-            blog.image_filename = filename
-        
-        # Update the update_date
-        blog.update_date = get_ist_time()
-        
-        try:
-            db.session.commit()
-            return jsonify({
-                "success": True,
-                "data": {
-                    "id": blog.id,
-                    "title": blog.title,
-                    "body": blog.body,
-                    "image_filename": blog.image_filename,
-                    "created_date": blog.created_date.isoformat(),
-                    "update_date": blog.update_date.isoformat()
-                }
-            })
-        except Exception as e:
-            db.session.rollback()
-            return jsonify({
-                "success": False,
-                "message": f"Error updating blog: {str(e)}"
-            }), 500
-            
-    except Exception as e:
-        return jsonify({
-            "success": False,
-            "message": f"Error finding blog post: {str(e)}"
-        }), 404
-
-
-# Delete the Blog After click on delete button
-@app.route('/blog/<int:id>', methods=['DELETE'])
-@jwt_required()
-def delete_post(id):
-    """
-    Delete a blog post and its associated image
-    """
-    try:
-        post_to_delete = Blog.query.get_or_404(id)
-
-        # Delete associated image file
-        if post_to_delete.image_filename:
-            photo_path = os.path.join(app.config['BASEDIR'], 'static', 'uploads', post_to_delete.image_filename)
-            if os.path.exists(photo_path):
-                os.remove(photo_path)
-
-        # Delete blog post from database
-        db.session.delete(post_to_delete)
-        db.session.commit()
-        return jsonify({
-            "success": True,
-            "message": "Blog post deleted succesfully"
-        })
-
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({
-            "success": False,
-            "message": f"Error deleting blog post {str(e)}"
-        }), 500
-
-
-# Register user after click on REGISTER USER
-@app.route('/register', methods=['POST'])
-def register():
-    data = request.get_json()
-    username = data.get('username')
-    email = data.get('email')
-    password = data.get('password')
-
-    if User.query.filter_by(email=email).first():
-        return jsonify({
-            "msg": "User already exists"
-        }), 409
-
-    hashed_password = generate_password_hash(password)
-    new_user = User(
-        username=username,
-        email=email,
-        password=hashed_password
-    )
-    db.session.add(new_user)
-    db.session.commit()
-
-    return jsonify({
-        "msg":"User registred successfully"
-    }), 201
-
-
-# Login API
-@app.route('/login', methods=['POST'])
-def login():
-    data = request.get_json()
-    email = data.get('email')
-    password = data.get('password')
-
-    user = User.query.filter_by(email=email).first()
-
-    if not user or not check_password_hash(user.password, password):
-        return jsonify ({
-            "msg": "Invalid Credentials"
-        }), 401
-
-    access_token = create_access_token(identity=user.id)
-    return jsonify({
-        "access_token": access_token,
-        "user": {
-            "id": user.id,
-            "username": user.username,
-            "email": user.email
-        }
-    }), 200
-
-# Get user data endpoint
-@app.route('/user', methods=['GET'])
-@jwt_required()
-def get_user():
-    try:
-        current_user_id = get_jwt_identity()
-        user = User.query.get(current_user_id)
-        
+        user = User.query.filter_by(session_token=token).first()
         if not user:
             return jsonify({
-                "success": False,
-                "message": "User not found"
-            }), 404
+                'success': False,
+                'message': 'Invalid token'
+            }), 401
+
+        blog = Blog.query.get_or_404(id)
+        if blog.user_id != user.id:
+            return jsonify({
+                'success': False,
+                'message': 'Not authorized to edit this blog'
+            }), 403
+
+        data = request.get_json()
+        if not data or not all(k in data for k in ['title', 'body']):
+            return jsonify({
+                'success': False,
+                'message': 'Missing required fields'
+            }), 400
+
+        blog.title = data['title']
+        blog.body = data['body']
+        if 'image' in data:
+            blog.image = data['image']
+        db.session.commit()
 
         return jsonify({
-            "success": True,
-            "data": {
-                "id": user.id,
-                "username": user.username,
-                "email": user.email
+            'success': True,
+            'message': 'Blog updated successfully',
+            'data': {
+                'id': blog.id,
+                'title': blog.title,
+                'body': blog.body,
+                'image': blog.image,
+                'created_at': blog.created_at.isoformat(),
+                'author': user.username
             }
         })
+
     except Exception as e:
+        print(f"Edit blog error: {str(e)}")
         return jsonify({
-            "success": False,
-            "message": str(e)
+            'success': False,
+            'message': 'An error occurred while updating the blog'
         }), 500
 
+@app.route('/api/blog/<int:id>', methods=['DELETE'])
+def delete_blog(id):
+    try:
+        token = request.headers.get('Authorization')
+        if not token:
+            return jsonify({
+                'success': False,
+                'message': 'No token provided'
+            }), 401
+
+        user = User.query.filter_by(session_token=token).first()
+        if not user:
+            return jsonify({
+                'success': False,
+                'message': 'Invalid token'
+            }), 401
+
+        blog = Blog.query.get_or_404(id)
+        if blog.user_id != user.id:
+            return jsonify({
+                'success': False,
+                'message': 'Not authorized to delete this blog'
+            }), 403
+
+        db.session.delete(blog)
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Blog deleted successfully'
+        })
+
+    except Exception as e:
+        print(f"Delete blog error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': 'An error occurred while deleting the blog'
+        }), 500
+
+@app.route('/api/home', methods=['GET'])
+def home():
+    try:
+        return jsonify({
+            'success': True,
+            'message': 'Welcome to the Blog Application!'
+        })
+    except Exception as e:
+        print(f"Home endpoint error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': 'An error occurred while loading the homepage'
+        }), 500
+
+@app.route('/static/uploads/<filename>')
+def serve_image(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
+# Serve React App
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve(path):
+    if path != "" and os.path.exists(app.static_folder + '/' + path):
+        return send_from_directory(app.static_folder, path)
+    else:
+        return send_from_directory(app.static_folder, 'index.html')
+
 if __name__ == '__main__':
-    with app.app_context():  # Needed for DB operations
-        db.create_all()  # Creates the database and tables
-    app.run(debug=True, port=5000)  # Run on a different port than React
+    app.run(debug=True)
+    
