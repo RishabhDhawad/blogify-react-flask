@@ -8,6 +8,11 @@ venv/
 
 # Database file
 BlogPost.db
+blog.db
+
+# Database Folder
+instance/
+instance
 
 # Uploaded files
 static/uploads/
@@ -23,6 +28,5 @@ Thumbs.db
 
 .env
 
-/instance
-blog.db
-BlogPost.db
+# Database Images
+uploads/

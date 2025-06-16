@@ -5,8 +5,15 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="7b88ff8a-2d3c-4af7-85bd-5d8a674bf75b" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/client/index.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/src/components/BlogDetailPage.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/components/BlogDetailPage.jsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/client/src/components/CreateBlog.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/components/CreateBlog.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/src/components/Homepage.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/components/Homepage.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/src/components/Listblogs.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/components/Listblogs.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/src/components/LoginPage.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/components/LoginPage.jsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/client/src/components/Navbar.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/components/Navbar.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/src/components/RegisterPage.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/components/RegisterPage.jsx" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -34,16 +41,16 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "DefaultHtmlFileTemplate": "HTML File",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "feature-from-old-commit",
-    "last_opened_file_path": "D:/Github/README.md",
-    "settings.editor.selected.configurable": "preferences.pluginManager"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;DefaultHtmlFileTemplate&quot;: &quot;HTML File&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;last_opened_file_path&quot;: &quot;D:/Github/README.md&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;
   }
-}]]></component>
+}</component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>

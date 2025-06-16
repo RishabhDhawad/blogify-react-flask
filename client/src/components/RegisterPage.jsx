@@ -4,37 +4,45 @@ import axios from 'axios';
 import config from '../config';
 
 function RegisterPage() {
-  const [formData, setFormData] = useState({ username: '', email: '', password: '' });
+  const [formData, setFormData] = useState({
+    username: '',
+    email: '',
+    password: ''
+  });
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleChange = e => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
   };
 
   const handleSubmit = async e => {
     e.preventDefault();
     setError('');
+    setSuccess('');
     setIsLoading(true);
 
     try {
-      const response = await axios.post(`${config.apiUrl}/api/register`, formData);
+      const response = await axios.post(`${config.apiUrl}/api/register`, {
+        username: formData.username,
+        email: formData.email,
+        password: formData.password
+      });
 
       if (response.data.success) {
-        // Store the token and user data
-        localStorage.setItem('token', response.data.data.token);
-        localStorage.setItem('user', JSON.stringify(response.data.data.user));
-        navigate('/list-blogs');
-      } else {
-        setError(response.data.message || 'Registration failed');
+        setSuccess('Registration successful! Redirecting to login...');
+        // Wait for 2 seconds to show the success message before redirecting
+        setTimeout(() => {
+          navigate('/login');
+        }, 2000);
       }
     } catch (err) {
-      if (err.response?.status === 400) {
-        setError(err.response.data.message || 'Please check your input');
-      } else {
-        setError('Something went wrong. Please try again.');
-      }
+      setError(err.response?.data?.message || 'An error occurred during registration');
     } finally {
       setIsLoading(false);
     }
@@ -44,6 +52,11 @@ function RegisterPage() {
     <div className="max-w-md mx-auto p-4">
       <h2 className="text-xl font-semibold mb-4">Register</h2>
 
+      {success && (
+        <div className="mb-4 p-2 bg-green-100 text-green-700 rounded">
+          {success}
+        </div>
+      )}
       {error && (
         <div className="mb-4 p-2 bg-red-100 text-red-700 rounded">
           {error}
@@ -99,8 +112,8 @@ function RegisterPage() {
             disabled={isLoading}
           />
         </div>
-        <button 
-          type="submit" 
+        <button
+          type="submit"
           className={`w-full bg-blue-500 text-white py-2 rounded ${
             isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-600'
           }`}

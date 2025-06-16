@@ -28,7 +28,9 @@ function Homepage() {
       {error ? (
         <p className='text-lg text-red-600'>{error}</p>
       ) : (
-        <p className='text-lg text-blue-800'>{message}</p>
+        <div className="text-center">
+          <p className='text-lg text-gray-600'>{message}</p>
+        </div>
       )}
     </div>
   )

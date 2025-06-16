@@ -4,7 +4,7 @@ import axios from 'axios';
 import config from '../config';
 
 function LoginPage() {
-  const [formData, setFormData] = useState({ username: '', password: '' });
+  const [formData, setFormData] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
@@ -22,15 +22,14 @@ function LoginPage() {
       const response = await axios.post(`${config.apiUrl}/api/login`, formData);
       
       if (response.data.success) {
-        localStorage.setItem('token', response.data.data.token);
-        localStorage.setItem('user', JSON.stringify(response.data.data.user));
+        localStorage.setItem('user', JSON.stringify(response.data.data));
         navigate('/list-blogs');
       } else {
         setError(response.data.message || 'Login failed');
       }
     } catch (err) {
       if (err.response?.status === 401) {
-        setError('Invalid username or password');
+        setError('Invalid email or password');
       } else {
         setError('An error occurred during login');
       }
@@ -51,16 +50,16 @@ function LoginPage() {
 
       <form onSubmit={handleSubmit}>
         <div className="mb-3">
-          <label htmlFor="username" className="block text-sm font-medium text-gray-700">
-            Username
+          <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+            Email
           </label>
           <input
-            type="text"
-            id="username"
-            name="username"
-            placeholder="Enter your username"
+            type="email"
+            id="email"
+            name="email"
+            placeholder="Enter your email"
             required
-            value={formData.username}
+            value={formData.email}
             onChange={handleChange}
             className="w-full border border-gray-300 p-2 rounded"
             disabled={isLoading}

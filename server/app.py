@@ -3,17 +3,15 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
-import secrets
 from datetime import datetime
 from werkzeug.utils import secure_filename
 
-app = Flask(__name__, static_folder='../client/dist')
+app = Flask(__name__)
 CORS(app)
 
 # Database configuration
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///blog.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SECRET_KEY'] = secrets.token_hex(16)
 app.config['UPLOAD_FOLDER'] = 'uploads'
 
 # Create uploads directory if it doesn't exist
@@ -28,7 +26,6 @@ class User(db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password = db.Column(db.String(200), nullable=False)
-    session_token = db.Column(db.String(100), unique=True)
     blogs = db.relationship('Blog', backref='author', lazy=True)
 
     def set_password(self, password):
@@ -36,12 +33,6 @@ class User(db.Model):
 
     def check_password(self, password):
         return check_password_hash(self.password, password)
-
-    def generate_session_token(self):
-        token = secrets.token_hex(16)
-        self.session_token = token
-        db.session.commit()
-        return token
 
 class Blog(db.Model):
     __tablename__ = 'blogs'
@@ -60,6 +51,7 @@ def init_db():
 # Initialize database when the application starts
 init_db()
 
+# Register User API
 @app.route('/api/register', methods=['POST'])
 def register():
     try:
@@ -87,18 +79,13 @@ def register():
         db.session.add(new_user)
         db.session.commit()
 
-        token = new_user.generate_session_token()
-
         return jsonify({
             'success': True,
             'message': 'Registration successful',
             'data': {
-                'token': token,
-                'user': {
-                    'id': new_user.id,
-                    'username': new_user.username,
-                    'email': new_user.email
-                }
+                'id': new_user.id,
+                'username': new_user.username,
+                'email': new_user.email
             }
         })
 
@@ -108,34 +95,31 @@ def register():
             'message': 'An error occurred during registration'
         }), 500
 
+# Login User API
 @app.route('/api/login', methods=['POST'])
 def login():
     try:
         data = request.get_json()
-        if not data or not all(k in data for k in ['username', 'password']):
+        if not data or not all(k in data for k in ['email', 'password']):
             return jsonify({
                 'success': False,
-                'message': 'Missing username or password'
+                'message': 'Missing email or password'
             }), 400
 
-        user = User.query.filter_by(username=data['username']).first()
+        user = User.query.filter_by(email=data['email']).first()
         if not user or not user.check_password(data['password']):
             return jsonify({
                 'success': False,
-                'message': 'Invalid username or password'
+                'message': 'Invalid email or password'
             }), 401
 
-        token = user.generate_session_token()
         return jsonify({
             'success': True,
             'message': 'Login successful',
             'data': {
-                'token': token,
-                'user': {
-                    'id': user.id,
-                    'username': user.username,
-                    'email': user.email
-                }
+                'id': user.id,
+                'username': user.username,
+                'email': user.email
             }
         })
 
@@ -145,49 +129,10 @@ def login():
             'message': 'An error occurred during login'
         }), 500
 
-@app.route('/api/logout', methods=['POST'])
-def logout():
-    try:
-        token = request.headers.get('Authorization')
-        if not token:
-            return jsonify({
-                'success': False,
-                'message': 'No token provided'
-            }), 401
-
-        user = User.query.filter_by(session_token=token).first()
-        if user:
-            user.session_token = None
-            db.session.commit()
-
-        return jsonify({
-            'success': True,
-            'message': 'Logged out successfully'
-        })
-
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': 'An error occurred during logout'
-        }), 500
-
+# Submit Blog API in Create Blog
 @app.route('/api/submit', methods=['POST'])
 def submit_blog():
     try:
-        token = request.headers.get('Authorization')
-        if not token:
-            return jsonify({
-                'success': False,
-                'message': 'No token provided'
-            }), 401
-
-        user = User.query.filter_by(session_token=token).first()
-        if not user:
-            return jsonify({
-                'success': False,
-                'message': 'Invalid token'
-            }), 401
-
         data = request.form
         if not data or not all(k in data for k in ['title', 'body']):
             return jsonify({
@@ -208,7 +153,7 @@ def submit_blog():
             title=data['title'],
             body=data['body'],
             image=image_path,
-            user_id=user.id
+            user_id=1  # Default user ID for now
         )
         
         db.session.add(new_blog)
@@ -222,8 +167,7 @@ def submit_blog():
                 'title': new_blog.title,
                 'body': new_blog.body,
                 'image': new_blog.image,
-                'created_at': new_blog.created_at.isoformat(),
-                'author': user.username
+                'created_at': new_blog.created_at.isoformat()
             }
         })
 
@@ -234,6 +178,7 @@ def submit_blog():
             'message': 'An error occurred while creating the blog'
         }), 500
 
+#  List Blogs API
 @app.route('/api/blogs', methods=['GET'])
 def get_blogs():
     try:
@@ -245,8 +190,7 @@ def get_blogs():
                 'title': blog.title,
                 'body': blog.body,
                 'image': blog.image,
-                'created_at': blog.created_at.isoformat(),
-                'author': blog.author.username
+                'created_at': blog.created_at.isoformat()
             } for blog in blogs]
         })
     except Exception as e:
@@ -255,6 +199,7 @@ def get_blogs():
             'message': 'An error occurred while fetching blogs'
         }), 500
 
+# To Fetch Single Single Blog
 @app.route('/api/blog/<int:blog_id>', methods=['GET'])
 def get_blog(blog_id):
     try:
@@ -266,8 +211,7 @@ def get_blog(blog_id):
                 'title': blog.title,
                 'body': blog.body,
                 'image': blog.image,
-                'created_at': blog.created_at.isoformat(),
-                'author': blog.author.username
+                'created_at': blog.created_at.isoformat()
             }
         })
     except Exception as e:
@@ -276,41 +220,46 @@ def get_blog(blog_id):
             'message': 'An error occurred while fetching the blog'
         }), 500
 
+
 @app.route('/api/blog/<int:id>/edit', methods=['PUT'])
 def edit_blog(id):
     try:
-        token = request.headers.get('Authorization')
-        if not token:
-            return jsonify({
-                'success': False,
-                'message': 'No token provided'
-            }), 401
-
-        user = User.query.filter_by(session_token=token).first()
-        if not user:
-            return jsonify({
-                'success': False,
-                'message': 'Invalid token'
-            }), 401
-
         blog = Blog.query.get_or_404(id)
-        if blog.user_id != user.id:
-            return jsonify({
-                'success': False,
-                'message': 'Not authorized to edit this blog'
-            }), 403
 
-        data = request.get_json()
-        if not data or not all(k in data for k in ['title', 'body']):
-            return jsonify({
-                'success': False,
-                'message': 'Missing required fields'
-            }), 400
+        # Handle form data for image upload
+        if request.content_type and 'multipart/form-data' in request.content_type:
+            data = request.form
+            if not data or not all(k in data for k in ['title', 'body']):
+                return jsonify({
+                    'success': False,
+                    'message': 'Missing required fields'
+                }), 400
+
+            # Handle image upload
+            if 'file' in request.files:
+                file = request.files['file']
+                if file and file.filename:
+                    # Delete old image if it exists
+                    if blog.image:
+                        old_image_path = os.path.join(app.config['UPLOAD_FOLDER'], blog.image)
+                        if os.path.exists(old_image_path):
+                            os.remove(old_image_path)
+                    
+                    filename = secure_filename(file.filename)
+                    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                    file.save(file_path)
+                    blog.image = filename
+        else:
+            # Handle JSON data
+            data = request.get_json()
+            if not data or not all(k in data for k in ['title', 'body']):
+                return jsonify({
+                    'success': False,
+                    'message': 'Missing required fields'
+                }), 400
 
         blog.title = data['title']
         blog.body = data['body']
-        if 'image' in data:
-            blog.image = data['image']
         db.session.commit()
 
         return jsonify({
@@ -321,41 +270,22 @@ def edit_blog(id):
                 'title': blog.title,
                 'body': blog.body,
                 'image': blog.image,
-                'created_at': blog.created_at.isoformat(),
-                'author': user.username
+                'created_at': blog.created_at.isoformat()
             }
         })
 
     except Exception as e:
+        db.session.rollback()
         return jsonify({
             'success': False,
             'message': 'An error occurred while updating the blog'
         }), 500
 
-@app.route('/api/blog/<int:id>', methods=['DELETE'])
+# Delete Blog API
+@app.route('/api/blog/delete/<int:id>', methods=['DELETE'])
 def delete_blog(id):
     try:
-        token = request.headers.get('Authorization')
-        if not token:
-            return jsonify({
-                'success': False,
-                'message': 'No token provided'
-            }), 401
-
-        user = User.query.filter_by(session_token=token).first()
-        if not user:
-            return jsonify({
-                'success': False,
-                'message': 'Invalid token'
-            }), 401
-
         blog = Blog.query.get_or_404(id)
-        if blog.user_id != user.id:
-            return jsonify({
-                'success': False,
-                'message': 'Not authorized to delete this blog'
-            }), 403
-
         db.session.delete(blog)
         db.session.commit()
 
@@ -370,31 +300,18 @@ def delete_blog(id):
             'message': 'An error occurred while deleting the blog'
         }), 500
 
+# Home Page API
 @app.route('/api/home', methods=['GET'])
 def home():
-    try:
-        return jsonify({
-            'success': True,
-            'message': 'Welcome to the Blog Application!'
-        })
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': 'An error occurred while loading the homepage'
-        }), 500
+    return jsonify({
+        'success': True,
+        'message': 'Welcome to Blog Application!'
+    })
 
+# Images are stored on this route
 @app.route('/static/uploads/<filename>')
 def serve_image(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
-
-# Serve React App
-@app.route('/', defaults={'path': ''})
-@app.route('/<path:path>')
-def serve(path):
-    if path != "" and os.path.exists(app.static_folder + '/' + path):
-        return send_from_directory(app.static_folder, path)
-    else:
-        return send_from_directory(app.static_folder, 'index.html')
 
 if __name__ == '__main__':
     app.run(debug=True)

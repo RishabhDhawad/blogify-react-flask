@@ -63,12 +63,10 @@ function ListBlogs() {
               </h2>
               <p className="text-gray-600 mb-2 line-clamp-2">{blog.body}</p>
               <p className="text-sm text-gray-500">
-                Created by {blog.author} on {new Date(blog.created_at).toLocaleDateString('en-US', {
+                Created on {new Date(blog.created_at).toLocaleDateString('en-US', {
                   year: 'numeric',
                   month: 'long',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit'
+                  day: 'numeric'
                 })}
               </p>
             </div>

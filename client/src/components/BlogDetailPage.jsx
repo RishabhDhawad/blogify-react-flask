@@ -12,6 +12,8 @@ function BlogDetailPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState('');
   const [editedBody, setEditedBody] = useState('');
+  const [editedImage, setEditedImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -28,6 +30,9 @@ function BlogDetailPage() {
         setBlog(response.data.data);
         setEditedTitle(response.data.data.title);
         setEditedBody(response.data.data.body);
+        if (response.data.data.image) {
+          setImagePreview(`${config.apiUrl}/static/uploads/${response.data.data.image}`);
+        }
       } else {
         setError(response.data.message || 'Failed to load blog');
       }
@@ -39,8 +44,8 @@ function BlogDetailPage() {
   };
 
   const handleEdit = () => {
-    const token = localStorage.getItem('token');
-    if (!token) {
+    const user = localStorage.getItem('user');
+    if (!user) {
       navigate('/login');
       return;
     }
@@ -51,6 +56,24 @@ function BlogDetailPage() {
     setIsEditing(false);
     setEditedTitle(blog.title);
     setEditedBody(blog.body);
+    setEditedImage(null);
+    if (blog.image) {
+      setImagePreview(`${config.apiUrl}/static/uploads/${blog.image}`);
+    } else {
+      setImagePreview(null);
+    }
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setEditedImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleSave = async () => {
@@ -58,21 +81,25 @@ function BlogDetailPage() {
       setIsSubmitting(true);
       setError('');
 
-      const token = localStorage.getItem('token');
-      if (!token) {
+      const user = localStorage.getItem('user');
+      if (!user) {
         navigate('/login');
         return;
       }
 
+      const formData = new FormData();
+      formData.append('title', editedTitle);
+      formData.append('body', editedBody);
+      if (editedImage) {
+        formData.append('file', editedImage);
+      }
+
       const response = await axios.put(
         `${config.apiUrl}/api/blog/${id}/edit`,
-        {
-          title: editedTitle,
-          body: editedBody
-        },
+        formData,
         {
           headers: {
-            'Authorization': token
+            'Content-Type': 'multipart/form-data'
           }
         }
       );
@@ -80,15 +107,12 @@ function BlogDetailPage() {
       if (response.data.success) {
         setBlog(response.data.data);
         setIsEditing(false);
+        setEditedImage(null);
       } else {
         setError(response.data.message || 'Failed to update blog');
       }
     } catch (err) {
-      if (err.response?.status === 401) {
-        navigate('/login');
-      } else {
-        setError('An error occurred while updating the blog');
-      }
+      setError('An error occurred while updating the blog');
     } finally {
       setIsSubmitting(false);
     }
@@ -103,17 +127,13 @@ function BlogDetailPage() {
       setIsDeleting(true);
       setError('');
 
-      const token = localStorage.getItem('token');
-      if (!token) {
+      const user = localStorage.getItem('user');
+      if (!user) {
         navigate('/login');
         return;
       }
 
-      const response = await axios.delete(`${config.apiUrl}/api/blog/${id}`, {
-        headers: {
-          'Authorization': token
-        }
-      });
+      const response = await axios.delete(`${config.apiUrl}/api/blog/delete/${id}`);
 
       if (response.data.success) {
         navigate('/list-blogs');
@@ -121,11 +141,7 @@ function BlogDetailPage() {
         setError(response.data.message || 'Failed to delete blog');
       }
     } catch (err) {
-      if (err.response?.status === 401) {
-        navigate('/login');
-      } else {
-        setError('An error occurred while deleting the blog');
-      }
+      setError('An error occurred while deleting the blog');
     } finally {
       setIsDeleting(false);
     }
@@ -139,8 +155,7 @@ function BlogDetailPage() {
     return <div className="p-4 text-red-500">{error}</div>;
   }
 
-  const isAuthor = blog && localStorage.getItem('user') && 
-    JSON.parse(localStorage.getItem('user')).username === blog.author;
+  const isLoggedIn = localStorage.getItem('user') !== null;
 
   return (
     <div className="max-w-4xl mx-auto p-4">
@@ -178,6 +193,28 @@ function BlogDetailPage() {
               disabled={isSubmitting}
             />
           </div>
+          <div>
+            <label htmlFor="image" className="block text-sm font-medium text-gray-700">
+              Image
+            </label>
+            <input
+              type="file"
+              id="image"
+              accept="image/*"
+              onChange={handleImageChange}
+              className="w-full border border-gray-300 p-2 rounded"
+              disabled={isSubmitting}
+            />
+            {imagePreview && (
+              <div className="mt-2">
+                <img
+                  src={imagePreview}
+                  alt="Preview"
+                  className="max-w-xs h-auto rounded"
+                />
+              </div>
+            )}
+          </div>
           <div className="flex space-x-2">
             <button
               onClick={handleSave}
@@ -212,10 +249,10 @@ function BlogDetailPage() {
           )}
           <p className="text-gray-600 whitespace-pre-wrap mb-4">{blog.body}</p>
           <p className="text-sm text-gray-500 mb-4">
-            Created by {blog.author} on {new Date(blog.created_at).toLocaleDateString()}
+            Created on {new Date(blog.created_at).toLocaleDateString()}
           </p>
           
-          {isAuthor && (
+          {isLoggedIn && (
             <div className="flex space-x-2">
               <button
                 onClick={handleEdit}
