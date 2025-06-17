@@ -7,6 +7,7 @@ import CreateBlog from './components/CreateBlog';
 import BlogDetailPage from './components/BlogDetailPage';
 import LoginPage from './components/LoginPage';
 import RegisterPage from './components/RegisterPage';
+import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
   return (
@@ -17,11 +18,39 @@ function App() {
           <Routes>
             <Route path="/" element={<Homepage />} />
             <Route path="/list-blogs" element={<ListBlogs />} />
-            <Route path="/create-blog" element={<CreateBlog />} />
+            <Route 
+              path="/create-blog" 
+              element={
+                <ProtectedRoute>
+                  <CreateBlog />
+                </ProtectedRoute>
+              } 
+            />
             <Route path="/blog/:id" element={<BlogDetailPage />} />
-            <Route path="/blog/:id/edit" element={<BlogDetailPage />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
+            <Route 
+              path="/blog/:id/edit" 
+              element={
+                <ProtectedRoute>
+                  <BlogDetailPage />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/login" 
+              element={
+                <ProtectedRoute requireAuth={false}>
+                  <LoginPage />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/register" 
+              element={
+                <ProtectedRoute requireAuth={false}>
+                  <RegisterPage />
+                </ProtectedRoute>
+              } 
+            />
           </Routes>
         </main>
       </div>

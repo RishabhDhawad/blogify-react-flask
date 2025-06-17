@@ -23,6 +23,8 @@ function LoginPage() {
       
       if (response.data.success) {
         localStorage.setItem('user', JSON.stringify(response.data.data));
+        // Dispatch custom event to update navbar
+        window.dispatchEvent(new Event('userStateChanged'));
         navigate('/list-blogs');
       } else {
         setError(response.data.message || 'Login failed');

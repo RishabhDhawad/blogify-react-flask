@@ -5,7 +5,7 @@ function Navbar() {
   const [user, setUser] = useState(null);
   const navigate = useNavigate();
 
-  useEffect(() => {
+  const updateUserState = () => {
     const userData = localStorage.getItem('user');
     if (userData) {
       try {
@@ -13,12 +13,33 @@ function Navbar() {
       } catch (error) {
         setUser(null);
       }
+    } else {
+      setUser(null);
     }
+  };
+
+  useEffect(() => {
+    // Initial check
+    updateUserState();
+
+    // Listen for storage changes in other tabs
+    window.addEventListener('storage', updateUserState);
+    
+    // Listen for custom event for same-tab changes
+    window.addEventListener('userStateChanged', updateUserState);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('storage', updateUserState);
+      window.removeEventListener('userStateChanged', updateUserState);
+    };
   }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('user');
     setUser(null);
+    // Dispatch custom event
+    window.dispatchEvent(new Event('userStateChanged'));
     navigate('/login');
   };
 
