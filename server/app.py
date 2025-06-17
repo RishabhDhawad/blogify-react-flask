@@ -303,10 +303,16 @@ def delete_blog(id):
 # Home Page API
 @app.route('/', methods=['GET'])
 def home():
-    return jsonify({
-        'success': True,
-        'message': 'Welcome to Blog Application!'
-    })
+    try:
+        return jsonify({
+            'success': True,
+            'message': 'Welcome to Blog Application!'
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': 'An error occurred while loading the homepage'
+        }), 500
 
 # Images are stored on this route
 @app.route('/static/uploads/<filename>')

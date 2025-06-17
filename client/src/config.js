@@ -1,5 +1,5 @@
 const config = {
-  apiUrl: 'https://flask-backend.onrender.com'
+  apiUrl: 'http://localhost:5000'
 };
 
 export default config; 
