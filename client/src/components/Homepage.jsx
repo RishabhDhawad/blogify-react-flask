@@ -9,7 +9,7 @@ function Homepage() {
   useEffect(() => {
     const fetchMessage = async () => {
       try {
-        const response = await axios.get(`${config.apiUrl}/api/home`);
+        const response = await axios.get(`${config.apiUrl}/`);
         if (response.data.success) {
           setMessage(response.data.message);
         } else {

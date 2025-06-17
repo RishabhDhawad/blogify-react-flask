@@ -301,7 +301,7 @@ def delete_blog(id):
         }), 500
 
 # Home Page API
-@app.route('/api/home', methods=['GET'])
+@app.route('/', methods=['GET'])
 def home():
     return jsonify({
         'success': True,
